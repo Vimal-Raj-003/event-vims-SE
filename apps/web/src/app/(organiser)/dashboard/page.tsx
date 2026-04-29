@@ -1,150 +1,324 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { apiClient } from "@/lib/api-client";
+import { useAuthStore } from "@/lib/stores/auth-store";
 
 interface Event {
   id: string;
   name: string;
-  date: string;
-  location: string;
+  status: string;
+  startAt: string;
+  venue: string;
   attendeeCount: number;
-  connectionCount: number;
-  status: "live" | "upcoming" | "ended";
 }
 
-const MOCK_EVENTS: Event[] = [
-  {
-    id: "evt_001",
-    name: "TechConnect Summit 2025",
-    date: "15 Mar 2025",
-    location: "ExCeL London",
-    attendeeCount: 342,
-    connectionCount: 1247,
-    status: "live",
-  },
-  {
-    id: "evt_002",
-    name: "Startup Grind London",
-    date: "22 Apr 2025",
-    location: "Google Campus, London",
-    attendeeCount: 128,
-    connectionCount: 456,
-    status: "upcoming",
-  },
-  {
-    id: "evt_003",
-    name: "AI & ML Conference",
-    date: "10 Feb 2025",
-    location: "Barbican Centre",
-    attendeeCount: 510,
-    connectionCount: 2103,
-    status: "ended",
-  },
-];
+interface DashStats {
+  totalEvents: number;
+  totalAttendees: number;
+  liveCount: number;
+  upcomingCount: number;
+  endedCount: number;
+  events: Event[];
+}
 
-const STATS = [
-  { label: "Total Events", value: "12", change: "+3 this month" },
-  { label: "Total Attendees", value: "2,847", change: "+412 this month" },
-  { label: "Connections Made", value: "8,391", change: "+1,247 this month" },
-  { label: "Avg. Satisfaction", value: "4.8/5", change: "Up from 4.6" },
-] as const;
+/* ── tiny inline SVG charts ─────────────────────────────────────── */
+
+function MiniBarChart({ values, color }: { values: number[]; color: string }) {
+  const max = Math.max(...values, 1);
+  const w = 48, h = 24, gap = 2;
+  const bw = (w - gap * (values.length - 1)) / values.length;
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="overflow-visible">
+      {values.map((v, i) => {
+        const bh = Math.max(2, (v / max) * h);
+        return (
+          <rect
+            key={i}
+            x={i * (bw + gap)}
+            y={h - bh}
+            width={bw}
+            height={bh}
+            rx="1"
+            fill={color}
+            opacity={i === values.length - 1 ? 1 : 0.4}
+          />
+        );
+      })}
+    </svg>
+  );
+}
+
+function DonutChart({ segments }: { segments: { value: number; color: string; label: string }[] }) {
+  const total = segments.reduce((s, x) => s + x.value, 0) || 1;
+  const r = 28, cx = 36, cy = 36, stroke = 10;
+  const circ = 2 * Math.PI * r;
+  let offset = 0;
+  return (
+    <svg width={72} height={72} viewBox="0 0 72 72">
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="#f1f5f9" strokeWidth={stroke} />
+      {segments.map((seg, i) => {
+        const dash = (seg.value / total) * circ;
+        const el = (
+          <circle
+            key={i}
+            cx={cx} cy={cy} r={r}
+            fill="none"
+            stroke={seg.color}
+            strokeWidth={stroke}
+            strokeDasharray={`${dash} ${circ - dash}`}
+            strokeDashoffset={-offset}
+            strokeLinecap="butt"
+            style={{ transform: "rotate(-90deg)", transformOrigin: "50% 50%" }}
+          />
+        );
+        offset += dash;
+        return el;
+      })}
+      <text x={cx} y={cy + 1} textAnchor="middle" dominantBaseline="middle" className="text-[10px] font-black fill-slate-800" fontSize={12} fontWeight={800}>
+        {total}
+      </text>
+    </svg>
+  );
+}
+
+function AttendeeBar({ value, max, color }: { value: number; max: number; color: string }) {
+  const pct = max > 0 ? Math.round((value / max) * 100) : 0;
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+        <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: color }} />
+      </div>
+      <span className="text-[10px] font-semibold text-muted-foreground w-7 text-right">{pct}%</span>
+    </div>
+  );
+}
+
+const STATUS_CFG: Record<string, { label: string; dot: string; badge: string; color: string }> = {
+  PUBLISHED: { label: "Live",     dot: "bg-emerald-500 animate-pulse", badge: "bg-emerald-50 text-emerald-700 border-emerald-100", color: "#10b981" },
+  DRAFT:     { label: "Draft",    dot: "bg-amber-400",                  badge: "bg-amber-50 text-amber-700 border-amber-100",       color: "#f59e0b" },
+  ENDED:     { label: "Ended",    dot: "bg-slate-400",                  badge: "bg-muted text-muted-foreground border-border",      color: "#94a3b8" },
+  CANCELLED: { label: "Cancelled",dot: "bg-red-400",                    badge: "bg-red-50 text-red-700 border-red-100",             color: "#ef4444" },
+};
+const getStatus = (s: string) => (STATUS_CFG[s] ?? STATUS_CFG["DRAFT"])!;
 
 export default function DashboardPage() {
-  return (
-    <div>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Welcome back, Jane. Here is your event overview.
-          </p>
-        </div>
-        <Link
-          href="/events/new"
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-600"
-        >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-          </svg>
-          New Event
-        </Link>
-      </div>
+  useAuthStore((s) => s.user);
+  const [stats, setStats] = useState<DashStats | null>(null);
+  const [loading, setLoading] = useState(true);
 
-      {/* Stats Grid */}
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {STATS.map((stat) => (
-          <div
-            key={stat.label}
-            className="rounded-xl border border-border bg-white p-6"
-          >
-            <p className="text-sm font-medium text-muted-foreground">
-              {stat.label}
-            </p>
-            <p className="mt-2 text-3xl font-bold text-foreground">
-              {stat.value}
-            </p>
-            <p className="mt-1 text-xs text-success">{stat.change}</p>
+  useEffect(() => {
+    async function load() {
+      try {
+        const { data } = await apiClient.get<Event[]>("/events");
+        const events = data ?? [];
+        setStats({
+          totalEvents: events.length,
+          totalAttendees: events.reduce((s, e) => s + (e.attendeeCount ?? 0), 0),
+          liveCount: events.filter((e) => e.status === "PUBLISHED").length,
+          upcomingCount: events.filter((e) => e.status === "DRAFT").length,
+          endedCount: events.filter((e) => e.status === "ENDED").length,
+          events: events.slice(0, 6),
+        });
+      } catch {
+        setStats({ totalEvents: 0, totalAttendees: 0, liveCount: 0, upcomingCount: 0, endedCount: 0, events: [] });
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  const maxAttendees = Math.max(...(stats?.events.map((e) => e.attendeeCount) ?? [1]), 1);
+
+  const barValues = stats?.events.length
+    ? stats.events.map((e) => e.attendeeCount)
+    : [0, 0, 0];
+
+  const donutSegments = [
+    { label: "Live",     value: stats?.liveCount ?? 0,     color: "#10b981" },
+    { label: "Draft",    value: stats?.upcomingCount ?? 0, color: "#f59e0b" },
+    { label: "Ended",    value: stats?.endedCount ?? 0,    color: "#94a3b8" },
+  ].filter((s) => s.value > 0);
+
+  if (donutSegments.length === 0) {
+    donutSegments.push({ label: "No events", value: 1, color: "#e2e8f0" });
+  }
+
+  if (loading) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <p className="text-sm text-muted-foreground">Loading dashboard…</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full flex flex-col gap-4 overflow-hidden">
+
+      {/* ── Row 1: KPI cards ───────────────────────────────────────── */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {[
+          {
+            label: "Total Events", value: stats?.totalEvents ?? 0,
+            icon: "📅", color: "text-primary", bg: "bg-primary/8",
+            bars: [1,2,stats?.endedCount??0, stats?.liveCount??0, stats?.totalEvents??0],
+            barColor: "#4f46e5",
+            sub: `${stats?.liveCount ?? 0} live · ${stats?.upcomingCount ?? 0} draft`,
+          },
+          {
+            label: "Total Attendees", value: stats?.totalAttendees ?? 0,
+            icon: "👥", color: "text-violet-600", bg: "bg-violet-50",
+            bars: barValues.slice(-5),
+            barColor: "#7c3aed",
+            sub: `Across ${stats?.totalEvents ?? 0} events`,
+          },
+          {
+            label: "Live Events", value: stats?.liveCount ?? 0,
+            icon: "🟢", color: "text-emerald-600", bg: "bg-emerald-50",
+            bars: [0, stats?.liveCount??0, stats?.liveCount??0],
+            barColor: "#10b981",
+            sub: "Currently active",
+          },
+          {
+            label: "Avg. Attendance", value: stats?.totalEvents
+              ? Math.round((stats.totalAttendees / stats.totalEvents)) : 0,
+            icon: "📊", color: "text-amber-600", bg: "bg-amber-50",
+            bars: barValues.slice(-5),
+            barColor: "#d97706",
+            sub: "Per event average",
+          },
+        ].map((kpi) => (
+          <div key={kpi.label} className="group rounded-2xl border border-border bg-white p-4 transition-all duration-200 hover:shadow-lg hover:shadow-black/5 hover:-translate-y-0.5">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">{kpi.label}</p>
+                <p className={`mt-1 text-2xl font-extrabold tracking-tight ${kpi.color}`}>
+                  {kpi.value.toLocaleString()}
+                </p>
+                <p className="mt-0.5 text-[10px] text-muted-foreground">{kpi.sub}</p>
+              </div>
+              <div className="flex flex-col items-end gap-2">
+                <div className={`flex h-9 w-9 items-center justify-center rounded-xl text-lg ${kpi.bg}`}>
+                  {kpi.icon}
+                </div>
+                <MiniBarChart values={kpi.bars} color={kpi.barColor} />
+              </div>
+            </div>
           </div>
         ))}
       </div>
 
-      {/* Events */}
-      <div className="mt-8">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-foreground">
-            Your Events
-          </h2>
-          <Link
-            href="/events"
-            className="text-sm font-medium text-primary hover:text-primary-600"
-          >
-            View all
-          </Link>
-        </div>
-        <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {MOCK_EVENTS.map((event) => (
-            <Link
-              key={event.id}
-              href={`/events/${event.id}`}
-              className="group rounded-xl border border-border bg-white p-6 transition-all hover:border-primary/30 hover:shadow-md"
-            >
-              <div className="flex items-center justify-between">
-                <span
-                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                    event.status === "live"
-                      ? "bg-green-50 text-green-700"
-                      : event.status === "upcoming"
-                      ? "bg-blue-50 text-blue-700"
-                      : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {event.status === "live" && (
-                    <span className="mr-1.5 h-1.5 w-1.5 rounded-full bg-green-500" />
-                  )}
-                  {event.status.charAt(0).toUpperCase() +
-                    event.status.slice(1)}
-                </span>
-              </div>
-              <h3 className="mt-3 text-base font-semibold text-foreground group-hover:text-primary">
-                {event.name}
-              </h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {event.date} &middot; {event.location}
-              </p>
-              <div className="mt-4 flex items-center gap-4 border-t border-border pt-4">
-                <div>
-                  <p className="text-lg font-semibold text-foreground">
-                    {event.attendeeCount}
-                  </p>
-                  <p className="text-xs text-muted-foreground">Attendees</p>
-                </div>
-                <div>
-                  <p className="text-lg font-semibold text-foreground">
-                    {event.connectionCount}
-                  </p>
-                  <p className="text-xs text-muted-foreground">Connections</p>
-                </div>
-              </div>
+      {/* ── Row 2: Charts + Event list ─────────────────────────────── */}
+      <div className="flex-1 grid gap-3 lg:grid-cols-3 min-h-0">
+
+        {/* Attendees bar chart */}
+        <div className="lg:col-span-2 rounded-2xl border border-border bg-white p-5 flex flex-col min-h-0">
+          <div className="flex items-center justify-between mb-4 shrink-0">
+            <div>
+              <p className="text-sm font-bold text-foreground">Attendees per Event</p>
+              <p className="text-xs text-muted-foreground">Live data from your events</p>
+            </div>
+            <Link href="/events" className="text-xs font-semibold text-primary hover:underline">
+              View all →
             </Link>
-          ))}
+          </div>
+
+          {stats?.events.length === 0 ? (
+            <div className="flex flex-1 items-center justify-center text-center">
+              <div>
+                <p className="text-3xl mb-2">📋</p>
+                <p className="text-sm font-semibold text-muted-foreground">No events yet</p>
+                <Link href="/events/new" className="mt-2 inline-block text-xs font-bold text-primary hover:underline">
+                  Create your first event →
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <div className="flex-1 flex flex-col justify-between gap-2 overflow-hidden">
+              {/* SVG bar chart */}
+              <div className="flex-1 flex items-end gap-2 min-h-[80px]">
+                {stats?.events.map((evt) => {
+                  const pct = maxAttendees > 0 ? (evt.attendeeCount / maxAttendees) * 100 : 0;
+                  const cfg = getStatus(evt.status) ?? STATUS_CFG["DRAFT"];
+                  return (
+                    <div key={evt.id} className="group flex-1 flex flex-col items-center gap-1">
+                      <p className="text-xs font-bold text-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                        {evt.attendeeCount}
+                      </p>
+                      <div className="w-full rounded-t-lg transition-all duration-700 hover:opacity-90 cursor-pointer"
+                        style={{ height: `${Math.max(pct, 4)}%`, background: cfg.color, minHeight: "6px" }}
+                        title={`${evt.name}: ${evt.attendeeCount} attendees`}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Labels */}
+              <div className="flex gap-2 shrink-0">
+                {stats?.events.map((evt) => (
+                  <div key={evt.id} className="flex-1 text-center">
+                    <p className="text-[10px] text-muted-foreground truncate">{evt.name.split(" ").slice(0, 2).join(" ")}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Right column: Donut + Event list */}
+        <div className="flex flex-col gap-3 min-h-0">
+          {/* Event status donut */}
+          <div className="rounded-2xl border border-border bg-white p-4 shrink-0">
+            <p className="text-sm font-bold text-foreground mb-3">Event Status</p>
+            <div className="flex items-center gap-4">
+              <DonutChart segments={donutSegments} />
+              <div className="space-y-2 flex-1">
+                {[
+                  { label: "Live",  value: stats?.liveCount ?? 0,     color: "bg-emerald-500" },
+                  { label: "Draft", value: stats?.upcomingCount ?? 0, color: "bg-amber-400" },
+                  { label: "Ended", value: stats?.endedCount ?? 0,    color: "bg-slate-400" },
+                ].map((s) => (
+                  <div key={s.label} className="flex items-center gap-2">
+                    <div className={`h-2 w-2 rounded-full shrink-0 ${s.color}`} />
+                    <span className="text-xs text-muted-foreground flex-1">{s.label}</span>
+                    <span className="text-xs font-bold text-foreground">{s.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Recent events list */}
+          <div className="flex-1 rounded-2xl border border-border bg-white p-4 flex flex-col min-h-0 overflow-hidden">
+            <p className="text-sm font-bold text-foreground mb-3 shrink-0">Recent Events</p>
+            <div className="flex-1 space-y-2 overflow-y-auto scrollbar-none">
+              {stats?.events.length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-4">No events yet</p>
+              )}
+              {stats?.events.map((evt) => {
+                const cfg = getStatus(evt.status) ?? STATUS_CFG["DRAFT"];
+                return (
+                  <Link
+                    key={evt.id}
+                    href={`/events/${evt.id}`}
+                    className="flex items-center gap-3 rounded-xl px-3 py-2 hover:bg-muted/50 transition-colors group"
+                  >
+                    <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${cfg.dot ?? "bg-slate-400"}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-foreground truncate group-hover:text-primary transition-colors">{evt.name}</p>
+                      <AttendeeBar value={evt.attendeeCount} max={maxAttendees} color={cfg.color} />
+                    </div>
+                    <span className="text-xs font-bold text-muted-foreground shrink-0">{evt.attendeeCount}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -1,214 +1,126 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import Link from "next/link";
-
-interface SignupForm {
-  fullName: string;
-  organisation: string;
-  email: string;
-  mobile: string;
-  password: string;
-  confirmPassword: string;
-}
+import { apiClient } from "@/lib/api-client";
+import { useRouter } from "next/navigation";
 
 export default function OrganiserSignupPage() {
-  const [form, setForm] = useState<SignupForm>({
-    fullName: "",
-    organisation: "",
-    email: "",
-    mobile: "",
-    password: "",
-    confirmPassword: "",
+  const router = useRouter();
+  const [form, setForm] = useState({ name: "", organisation: "", email: "", mobile: "", password: "", confirmPassword: "" });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+
+  const f = (id: keyof typeof form) => ({
+    value: form[id],
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) => setForm((p) => ({ ...p, [id]: e.target.value })),
   });
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
-
-    if (form.password !== form.confirmPassword) {
-      setError("Passwords do not match.");
-      return;
-    }
-
-    if (form.password.length < 8) {
-      setError("Password must be at least 8 characters.");
-      return;
-    }
-
-    setIsLoading(true);
+    setError("");
+    if (form.password !== form.confirmPassword) { setError("Passwords do not match."); return; }
+    if (form.password.length < 8) { setError("Password must be at least 8 characters."); return; }
+    setLoading(true);
     try {
-      // API call will be wired to the backend
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      window.location.href = "/dashboard";
-    } catch {
-      setError("Something went wrong. Please try again.");
+      await apiClient.post("/auth/organiser/signup", {
+        name: form.name, organisation: form.organisation,
+        email: form.email, mobile: form.mobile, password: form.password,
+      });
+      router.push(`/auth/organiser/verify?email=${encodeURIComponent(form.email)}`);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setError(msg ?? "Something went wrong. Please try again.");
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
-  };
+  }
+
+  const inputClass = "w-full rounded-2xl border border-border bg-muted/30 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/60 transition-all focus:border-primary focus:bg-white focus:outline-none focus:ring-3 focus:ring-primary/10";
+  const labelClass = "block text-sm font-semibold text-foreground mb-1.5";
 
   return (
-    <>
-      <h1 className="text-2xl font-bold text-foreground">
-        Create your account
-      </h1>
-      <p className="mt-2 text-sm text-muted-foreground">
-        Start hosting networking events in minutes
-      </p>
+    <div className="animate-in">
+      <div className="mb-8">
+        <h1 className="text-3xl font-extrabold text-foreground tracking-tight">Create your account</h1>
+        <p className="mt-2 text-muted-foreground">Start hosting networking events in minutes</p>
+      </div>
 
       {error && (
-        <div className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
+        <div className="mb-5 flex items-start gap-2.5 rounded-2xl bg-destructive/5 border border-destructive/20 px-4 py-3">
+          <svg className="mt-0.5 h-4 w-4 shrink-0 text-destructive" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z" />
+          </svg>
+          <p className="text-sm text-destructive">{error}</p>
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-        <div>
-          <label
-            htmlFor="fullName"
-            className="block text-sm font-medium text-foreground"
-          >
-            Full Name
-          </label>
-          <input
-            id="fullName"
-            type="text"
-            required
-            value={form.fullName}
-            onChange={(e) =>
-              setForm((prev) => ({ ...prev, fullName: e.target.value }))
-            }
-            className="mt-1 block w-full rounded-lg border border-input bg-white px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-            placeholder="Jane Doe"
-          />
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelClass}>Full Name</label>
+            <input type="text" required placeholder="Jane Doe" autoComplete="name" {...f("name")} className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>Organisation</label>
+            <input type="text" required placeholder="Acme Corp" {...f("organisation")} className={inputClass} />
+          </div>
         </div>
 
         <div>
-          <label
-            htmlFor="organisation"
-            className="block text-sm font-medium text-foreground"
-          >
-            Organisation
-          </label>
-          <input
-            id="organisation"
-            type="text"
-            required
-            value={form.organisation}
-            onChange={(e) =>
-              setForm((prev) => ({ ...prev, organisation: e.target.value }))
-            }
-            className="mt-1 block w-full rounded-lg border border-input bg-white px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-            placeholder="Acme Corp"
-          />
+          <label className={labelClass}>Email address</label>
+          <input type="email" required placeholder="jane@acme.com" autoComplete="email" {...f("email")} className={inputClass} />
         </div>
 
         <div>
-          <label
-            htmlFor="email"
-            className="block text-sm font-medium text-foreground"
-          >
-            Email Address
-          </label>
-          <input
-            id="email"
-            type="email"
-            required
-            value={form.email}
-            onChange={(e) =>
-              setForm((prev) => ({ ...prev, email: e.target.value }))
-            }
-            className="mt-1 block w-full rounded-lg border border-input bg-white px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-            placeholder="jane@acme.com"
-          />
+          <label className={labelClass}>Mobile number</label>
+          <input type="tel" required placeholder="+91 98765 43210" autoComplete="tel" {...f("mobile")} className={inputClass} />
         </div>
 
         <div>
-          <label
-            htmlFor="mobile"
-            className="block text-sm font-medium text-foreground"
-          >
-            Mobile Number
-          </label>
-          <input
-            id="mobile"
-            type="tel"
-            required
-            value={form.mobile}
-            onChange={(e) =>
-              setForm((prev) => ({ ...prev, mobile: e.target.value }))
-            }
-            className="mt-1 block w-full rounded-lg border border-input bg-white px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-            placeholder="+44 7700 900000"
-          />
+          <label className={labelClass}>Password</label>
+          <div className="relative">
+            <input type={showPassword ? "text" : "password"} required minLength={8} placeholder="Min. 8 characters" autoComplete="new-password" {...f("password")} className={`${inputClass} pr-11`} />
+            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1 text-muted-foreground hover:text-foreground">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         <div>
-          <label
-            htmlFor="password"
-            className="block text-sm font-medium text-foreground"
-          >
-            Password
-          </label>
-          <input
-            id="password"
-            type="password"
-            required
-            minLength={8}
-            value={form.password}
-            onChange={(e) =>
-              setForm((prev) => ({ ...prev, password: e.target.value }))
-            }
-            className="mt-1 block w-full rounded-lg border border-input bg-white px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-            placeholder="At least 8 characters"
-          />
-        </div>
-
-        <div>
-          <label
-            htmlFor="confirmPassword"
-            className="block text-sm font-medium text-foreground"
-          >
-            Confirm Password
-          </label>
-          <input
-            id="confirmPassword"
-            type="password"
-            required
-            minLength={8}
-            value={form.confirmPassword}
-            onChange={(e) =>
-              setForm((prev) => ({
-                ...prev,
-                confirmPassword: e.target.value,
-              }))
-            }
-            className="mt-1 block w-full rounded-lg border border-input bg-white px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-            placeholder="Repeat your password"
-          />
+          <label className={labelClass}>Confirm password</label>
+          <input type="password" required minLength={8} placeholder="Repeat your password" autoComplete="new-password" {...f("confirmPassword")} className={inputClass} />
         </div>
 
         <button
           type="submit"
-          disabled={isLoading}
-          className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={loading}
+          className="group w-full overflow-hidden rounded-2xl bg-primary py-3.5 text-sm font-bold text-white shadow-lg shadow-primary/25 transition-all hover:shadow-primary/40 hover:scale-[1.01] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
         >
-          {isLoading ? "Creating account..." : "Create Account"}
+          {loading ? (
+            <span className="flex items-center justify-center gap-2">
+              <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+              Creating account…
+            </span>
+          ) : "Create Account →"}
         </button>
+
+        <p className="text-center text-xs text-muted-foreground">
+          By signing up you agree to our{" "}
+          <a href="#" className="text-primary hover:underline">Terms</a> &amp;{" "}
+          <a href="#" className="text-primary hover:underline">Privacy Policy</a>
+        </p>
       </form>
 
-      <p className="mt-6 text-center text-sm text-muted-foreground">
+      <p className="mt-5 text-center text-sm text-muted-foreground">
         Already have an account?{" "}
-        <Link
-          href="/auth/organiser/login"
-          className="font-medium text-primary hover:text-primary-600"
-        >
+        <Link href="/auth/organiser/login" className="font-semibold text-primary hover:text-primary-600 transition-colors">
           Log in
         </Link>
       </p>
-    </>
+    </div>
   );
 }

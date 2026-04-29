@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "nest start --watch",
+    "dev": "node_modules/.bin/nest.cmd start --watch",
     "build": "nest build",
     "start": "node dist/main",
     "start:prod": "node dist/main",
@@ -14,7 +14,7 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:migrate:dev": "prisma migrate dev",
-    "db:seed": "tsx prisma/seed.ts",
+    "db:seed": "npx tsx prisma/seed.ts",
     "db:studio": "prisma studio"
   },
   "dependencies": {

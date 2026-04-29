@@ -7,6 +7,7 @@ import {
   UseGuards,
   SerializeOptions,
 } from '@nestjs/common';
+import { IsEmail, IsString, MinLength, IsNotEmpty } from 'class-validator';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -15,41 +16,52 @@ import { CurrentUser } from './decorators/current-user.decorator';
 import type { CurrentUserData } from './decorators/current-user.decorator';
 
 class OrganiserSignupDto {
-  email: string;
-  password: string;
-  name: string;
-  organisation: string;
-  mobile: string;
+  @IsEmail() email: string;
+  @IsString() @MinLength(8) password: string;
+  @IsString() @IsNotEmpty() name: string;
+  @IsString() @IsNotEmpty() organisation: string;
+  @IsString() @IsNotEmpty() mobile: string;
 }
 
 class OrganiserLoginDto {
-  email: string;
-  password: string;
+  @IsEmail() email: string;
+  @IsString() @IsNotEmpty() password: string;
 }
 
 class VerifyEmailDto {
-  token: string;
+  @IsString() @IsNotEmpty() token: string;
 }
 
 class RequestOtpDto {
-  email: string;
-  eventId: string;
+  @IsEmail() email: string;
+  @IsString() @IsNotEmpty() eventId: string;
 }
 
 class VerifyOtpDto {
-  email: string;
-  eventId: string;
-  otp: string;
+  @IsEmail() email: string;
+  @IsString() @IsNotEmpty() eventId: string;
+  @IsString() @IsNotEmpty() otp: string;
 }
 
 class RefreshTokenDto {
-  refreshToken: string;
+  @IsString() @IsNotEmpty() refreshToken: string;
 }
 
 @Controller('auth')
 @SerializeOptions({ groups: ['public'] })
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  // ──────────────────────────────────────────────
+  // Super Admin Endpoints
+  // ──────────────────────────────────────────────
+
+  @Post('super-admin/login')
+  @UseGuards(ThrottlerGuard)
+  @HttpCode(HttpStatus.OK)
+  async superAdminLogin(@Body() dto: OrganiserLoginDto) {
+    return this.authService.superAdminLogin(dto);
+  }
 
   // ──────────────────────────────────────────────
   // Organiser Endpoints

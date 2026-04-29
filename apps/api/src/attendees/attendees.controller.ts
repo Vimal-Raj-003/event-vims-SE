@@ -13,6 +13,7 @@ import {
   SetMetadata,
 } from '@nestjs/common';
 import { Response } from 'express';
+import { IsString, IsEmail, IsBoolean, IsOptional, IsNotEmpty } from 'class-validator';
 import { AttendeesService } from './attendees.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -25,39 +26,39 @@ import type { CurrentUserData } from '../auth/decorators/current-user.decorator'
 // ──────────────────────────────────────────────
 
 class RegisterAttendeeDto {
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  designation: string;
-  company: string;
-  businessType: string;
-  industry: string;
-  services?: unknown;
-  city: string;
-  address?: string;
-  companySize?: string;
-  tags?: unknown;
-  profilePhotoUrl?: string;
-  companyLogoUrl?: string;
-  consentGiven: boolean;
+  @IsString() @IsNotEmpty() firstName: string;
+  @IsString() @IsNotEmpty() lastName: string;
+  @IsEmail() email: string;
+  @IsString() @IsNotEmpty() phone: string;
+  @IsString() @IsNotEmpty() designation: string;
+  @IsString() @IsNotEmpty() company: string;
+  @IsString() @IsNotEmpty() businessType: string;
+  @IsString() @IsNotEmpty() industry: string;
+  @IsOptional() services?: unknown;
+  @IsString() @IsNotEmpty() city: string;
+  @IsOptional() @IsString() address?: string;
+  @IsOptional() @IsString() companySize?: string;
+  @IsOptional() tags?: unknown;
+  @IsOptional() @IsString() profilePhotoUrl?: string;
+  @IsOptional() @IsString() companyLogoUrl?: string;
+  @IsBoolean() consentGiven: boolean;
 }
 
 class UpdateAttendeeProfileDto {
-  firstName?: string;
-  lastName?: string;
-  phone?: string;
-  designation?: string;
-  company?: string;
-  businessType?: string;
-  industry?: string;
-  services?: unknown;
-  city?: string;
-  address?: string;
-  companySize?: string;
-  tags?: unknown;
-  profilePhotoUrl?: string;
-  companyLogoUrl?: string;
+  @IsOptional() @IsString() firstName?: string;
+  @IsOptional() @IsString() lastName?: string;
+  @IsOptional() @IsString() phone?: string;
+  @IsOptional() @IsString() designation?: string;
+  @IsOptional() @IsString() company?: string;
+  @IsOptional() @IsString() businessType?: string;
+  @IsOptional() @IsString() industry?: string;
+  @IsOptional() services?: unknown;
+  @IsOptional() @IsString() city?: string;
+  @IsOptional() @IsString() address?: string;
+  @IsOptional() @IsString() companySize?: string;
+  @IsOptional() tags?: unknown;
+  @IsOptional() @IsString() profilePhotoUrl?: string;
+  @IsOptional() @IsString() companyLogoUrl?: string;
 }
 
 // ──────────────────────────────────────────────

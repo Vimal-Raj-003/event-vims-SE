@@ -137,6 +137,42 @@ export class AuthService {
     return { message: 'Email verified successfully. You can now log in.' };
   }
 
+  async superAdminLogin(dto: { email: string; password: string }) {
+    const admin = await this.prisma.superAdmin.findUnique({
+      where: { email: dto.email.toLowerCase() },
+    });
+
+    if (!admin) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    const passwordValid = await bcrypt.compare(dto.password, admin.passwordHash);
+    if (!passwordValid) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    const tokens = await this.generateTokenPair({
+      sub: admin.id,
+      email: admin.email,
+      role: 'super_admin',
+      isSuperAdmin: true,
+    });
+
+    await this.storeRefreshToken(admin.id, 'super_admin', tokens.refreshToken);
+
+    this.logger.log(`Super Admin logged in: ${admin.email}`);
+
+    return {
+      ...tokens,
+      user: {
+        id: admin.id,
+        email: admin.email,
+        name: admin.name,
+        role: 'super_admin',
+      },
+    };
+  }
+
   async organiserLogin(dto: { email: string; password: string }) {
     const organiser = await this.prisma.organiser.findUnique({
       where: { email: dto.email.toLowerCase() },

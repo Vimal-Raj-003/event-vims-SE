@@ -10,6 +10,8 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { IsString, IsNotEmpty, IsOptional, IsNumber, IsDateString, MaxLength } from 'class-validator';
+import { Type } from 'class-transformer';
 import { EventsService } from './events.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -18,27 +20,27 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { CurrentUserData } from '../auth/decorators/current-user.decorator';
 
 class CreateEventDto {
-  name: string;
-  description: string;
-  startAt: string;
-  endAt: string;
-  venue: string;
-  venueMapUrl?: string;
-  expectedCount?: number;
-  brandPrimary?: string;
-  brandSecondary?: string;
+  @IsString() @IsNotEmpty() name: string;
+  @IsString() @MaxLength(500) description: string;
+  @IsDateString() startAt: string;
+  @IsDateString() endAt: string;
+  @IsString() @IsNotEmpty() venue: string;
+  @IsOptional() @IsString() venueMapUrl?: string;
+  @IsOptional() @Type(() => Number) @IsNumber() expectedCount?: number;
+  @IsOptional() @IsString() brandPrimary?: string;
+  @IsOptional() @IsString() brandSecondary?: string;
 }
 
 class UpdateEventDto {
-  name?: string;
-  description?: string;
-  startAt?: string;
-  endAt?: string;
-  venue?: string;
-  venueMapUrl?: string;
-  expectedCount?: number;
-  brandPrimary?: string;
-  brandSecondary?: string;
+  @IsOptional() @IsString() name?: string;
+  @IsOptional() @IsString() description?: string;
+  @IsOptional() @IsDateString() startAt?: string;
+  @IsOptional() @IsDateString() endAt?: string;
+  @IsOptional() @IsString() venue?: string;
+  @IsOptional() @IsString() venueMapUrl?: string;
+  @IsOptional() @Type(() => Number) @IsNumber() expectedCount?: number;
+  @IsOptional() @IsString() brandPrimary?: string;
+  @IsOptional() @IsString() brandSecondary?: string;
 }
 
 @Controller('events')

@@ -16,6 +16,9 @@ import { AnnouncementsModule } from './announcements/announcements.module';
 import { ExportModule } from './export/export.module';
 import { AdminModule } from './admin/admin.module';
 import { ComplianceModule } from './compliance/compliance.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { StorageModule } from './storage/storage.module';
+import { QrModule } from './qr/qr.module';
 import { HealthController } from './health/health.controller';
 
 @Module({
@@ -77,6 +80,9 @@ import { HealthController } from './health/health.controller';
     ExportModule,
     AdminModule,
     ComplianceModule,
+    NotificationsModule,
+    StorageModule,
+    QrModule,
   ],
   controllers: [HealthController],
 })

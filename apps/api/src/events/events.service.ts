@@ -274,9 +274,9 @@ export class EventsService {
     // Generate 8-char random hex shortHash, deduplicate if necessary
     const shortHash = await this.deduplicateShortHash();
 
-    // Construct QR URL (points to registration page)
-    const baseUrl = process.env.FRONTEND_URL ?? 'https://vims.app';
-    const qrUrl = `${baseUrl}/e/${shortHash}`;
+    // Construct QR URL — direct attendee registration link
+    const baseUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
+    const qrUrl = `${baseUrl}/auth/attendee/register?eventId=${eventId}&eventName=${encodeURIComponent(event.name)}`;
 
     // Update event and create field configs + rules in a transaction
     const published = await this.prisma.$transaction(async (tx) => {

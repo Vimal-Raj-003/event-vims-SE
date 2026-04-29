@@ -18,11 +18,12 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { CurrentUserData } from '../auth/decorators/current-user.decorator';
 import { Request } from 'express';
+import { IsString, IsNotEmpty } from 'class-validator';
 
 import { Req } from '@nestjs/common';
 
 class RejectDeletionDto {
-  reason: string;
+  @IsString() @IsNotEmpty() reason: string;
 }
 
 @Controller('admin')

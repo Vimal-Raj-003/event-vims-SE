@@ -9,6 +9,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { IsString, IsNotEmpty, IsOptional, MaxLength } from 'class-validator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -16,8 +17,8 @@ import type { CurrentUserData } from '../auth/decorators/current-user.decorator'
 import { ConnectionsService } from './connections.service';
 
 class SendConnectionDto {
-  receiverId: string;
-  message?: string;
+  @IsString() @IsNotEmpty() receiverId: string;
+  @IsOptional() @IsString() @MaxLength(200) message?: string;
 }
 
 @Controller('events/:eventId/connections')
