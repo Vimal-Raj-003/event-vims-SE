@@ -1,0 +1,446 @@
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  ForbiddenException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { ClsService } from 'nestjs-cls';
+import { ConnectionStatus, EventStatus } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+
+@Injectable()
+export class AttendeesService {
+  private readonly logger = new Logger(AttendeesService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cls: ClsService,
+  ) {}
+
+  // ──────────────────────────────────────────────
+  // Register Attendee (Public)
+  // ──────────────────────────────────────────────
+
+  async register(
+    eventSlug: string,
+    dto: {
+      firstName: string;
+      lastName: string;
+      email: string;
+      phone: string;
+      designation: string;
+      company: string;
+      businessType: string;
+      industry: string;
+      services?: unknown;
+      city: string;
+      address?: string;
+      companySize?: string;
+      tags?: unknown;
+      profilePhotoUrl?: string;
+      companyLogoUrl?: string;
+      consentGiven: boolean;
+    },
+  ) {
+    if (!dto.consentGiven) {
+      throw new BadRequestException('Consent is required to register');
+    }
+
+    // Resolve event by slug
+    const event = await this.prisma.event.findUnique({
+      where: { slug: eventSlug },
+    });
+
+    if (!event || event.status === EventStatus.DELETED) {
+      throw new NotFoundException('Event not found');
+    }
+
+    if (event.status !== EventStatus.PUBLISHED) {
+      throw new BadRequestException('Event is not open for registration');
+    }
+
+    const normalizedEmail = dto.email.toLowerCase().trim();
+
+    // Check for existing registration (unique constraint on eventId + email)
+    const existing = await this.prisma.attendee.findUnique({
+      where: {
+        eventId_email: {
+          eventId: event.id,
+          email: normalizedEmail,
+        },
+      },
+    });
+
+    if (existing) {
+      throw new ConflictException('Already registered. Please login.');
+    }
+
+    const attendee = await this.prisma.attendee.create({
+      data: {
+        eventId: event.id,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        email: normalizedEmail,
+        phone: dto.phone,
+        designation: dto.designation,
+        company: dto.company,
+        businessType: dto.businessType,
+        industry: dto.industry,
+        services: dto.services ?? [],
+        city: dto.city,
+        address: dto.address ?? null,
+        companySize: dto.companySize ?? null,
+        tags: dto.tags ?? [],
+        profilePhotoUrl: dto.profilePhotoUrl ?? null,
+        companyLogoUrl: dto.companyLogoUrl ?? null,
+        consentGiven: true,
+        consentedAt: new Date(),
+      },
+    });
+
+    this.logger.log(
+      `Attendee registered: ${attendee.id} for event ${event.id}`,
+    );
+
+    return {
+      id: attendee.id,
+      eventId: attendee.eventId,
+      firstName: attendee.firstName,
+      lastName: attendee.lastName,
+      email: attendee.email,
+      message: 'Registration successful',
+    };
+  }
+
+  // ──────────────────────────────────────────────
+  // List Attendees (Organiser, paginated)
+  // ──────────────────────────────────────────────
+
+  async findAll(
+    eventId: string,
+    organiserId: string,
+    page: number = 1,
+    pageSize: number = 50,
+    search?: string,
+  ) {
+    // Verify event ownership
+    const event = await this.prisma.event.findUnique({
+      where: { id: eventId },
+    });
+
+    if (!event || event.status === EventStatus.DELETED) {
+      throw new NotFoundException('Event not found');
+    }
+
+    if (event.organiserId !== organiserId) {
+      throw new ForbiddenException('You do not own this event');
+    }
+
+    const skip = (page - 1) * pageSize;
+
+    const where: Prisma.AttendeeWhereInput = { eventId };
+
+    if (search) {
+      const searchTerm = search.trim();
+      where.OR = [
+        { firstName: { contains: searchTerm, mode: 'insensitive' } },
+        { lastName: { contains: searchTerm, mode: 'insensitive' } },
+        { company: { contains: searchTerm, mode: 'insensitive' } },
+      ];
+    }
+
+    const [attendees, total] = await Promise.all([
+      this.prisma.attendee.findMany({
+        where,
+        skip,
+        take: pageSize,
+        orderBy: { registeredAt: 'desc' },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          phone: true,
+          designation: true,
+          company: true,
+          businessType: true,
+          industry: true,
+          city: true,
+          companySize: true,
+          profilePhotoUrl: true,
+          companyLogoUrl: true,
+          registeredAt: true,
+          lastActiveAt: true,
+          isPaused: true,
+        },
+      }),
+      this.prisma.attendee.count({ where }),
+    ]);
+
+    return {
+      data: attendees,
+      meta: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize),
+      },
+    };
+  }
+
+  // ──────────────────────────────────────────────
+  // Get Own Profile (Attendee)
+  // ──────────────────────────────────────────────
+
+  async getProfile(attendeeId: string) {
+    const attendee = await this.prisma.attendee.findUnique({
+      where: { id: attendeeId },
+    });
+
+    if (!attendee) {
+      throw new NotFoundException('Attendee not found');
+    }
+
+    return {
+      id: attendee.id,
+      eventId: attendee.eventId,
+      firstName: attendee.firstName,
+      lastName: attendee.lastName,
+      email: attendee.email,
+      phone: attendee.phone,
+      designation: attendee.designation,
+      company: attendee.company,
+      businessType: attendee.businessType,
+      industry: attendee.industry,
+      services: attendee.services,
+      city: attendee.city,
+      address: attendee.address,
+      companySize: attendee.companySize,
+      tags: attendee.tags,
+      profilePhotoUrl: attendee.profilePhotoUrl,
+      companyLogoUrl: attendee.companyLogoUrl,
+      registeredAt: attendee.registeredAt,
+      lastActiveAt: attendee.lastActiveAt,
+      isPaused: attendee.isPaused,
+    };
+  }
+
+  // ──────────────────────────────────────────────
+  // Update Own Profile (Attendee)
+  // ──────────────────────────────────────────────
+
+  async updateProfile(
+    attendeeId: string,
+    dto: {
+      firstName?: string;
+      lastName?: string;
+      phone?: string;
+      designation?: string;
+      company?: string;
+      businessType?: string;
+      industry?: string;
+      services?: unknown;
+      city?: string;
+      address?: string;
+      companySize?: string;
+      tags?: unknown;
+      profilePhotoUrl?: string;
+      companyLogoUrl?: string;
+    },
+  ) {
+    const attendee = await this.prisma.attendee.findUnique({
+      where: { id: attendeeId },
+    });
+
+    if (!attendee) {
+      throw new NotFoundException('Attendee not found');
+    }
+
+    const updateData: Record<string, unknown> = {};
+
+    if (dto.firstName !== undefined) updateData.firstName = dto.firstName;
+    if (dto.lastName !== undefined) updateData.lastName = dto.lastName;
+    if (dto.phone !== undefined) updateData.phone = dto.phone;
+    if (dto.designation !== undefined) updateData.designation = dto.designation;
+    if (dto.company !== undefined) updateData.company = dto.company;
+    if (dto.businessType !== undefined) updateData.businessType = dto.businessType;
+    if (dto.industry !== undefined) updateData.industry = dto.industry;
+    if (dto.services !== undefined) updateData.services = dto.services;
+    if (dto.city !== undefined) updateData.city = dto.city;
+    if (dto.address !== undefined) updateData.address = dto.address;
+    if (dto.companySize !== undefined) updateData.companySize = dto.companySize;
+    if (dto.tags !== undefined) updateData.tags = dto.tags;
+    if (dto.profilePhotoUrl !== undefined) updateData.profilePhotoUrl = dto.profilePhotoUrl;
+    if (dto.companyLogoUrl !== undefined) updateData.companyLogoUrl = dto.companyLogoUrl;
+
+    const updated = await this.prisma.attendee.update({
+      where: { id: attendeeId },
+      data: updateData,
+    });
+
+    this.logger.log(`Attendee profile updated: ${attendeeId}`);
+
+    return {
+      id: updated.id,
+      eventId: updated.eventId,
+      firstName: updated.firstName,
+      lastName: updated.lastName,
+      email: updated.email,
+      phone: updated.phone,
+      designation: updated.designation,
+      company: updated.company,
+      businessType: updated.businessType,
+      industry: updated.industry,
+      services: updated.services,
+      city: updated.city,
+      address: updated.address,
+      companySize: updated.companySize,
+      tags: updated.tags,
+      profilePhotoUrl: updated.profilePhotoUrl,
+      companyLogoUrl: updated.companyLogoUrl,
+    };
+  }
+
+  // ──────────────────────────────────────────────
+  // Get Business Card (Attendee)
+  // ──────────────────────────────────────────────
+
+  async getBusinessCard(attendeeId: string) {
+    const attendee = await this.prisma.attendee.findUnique({
+      where: { id: attendeeId },
+    });
+
+    if (!attendee) {
+      throw new NotFoundException('Attendee not found');
+    }
+
+    return {
+      firstName: attendee.firstName,
+      lastName: attendee.lastName,
+      designation: attendee.designation,
+      company: attendee.company,
+      businessType: attendee.businessType,
+      industry: attendee.industry,
+      services: attendee.services,
+      city: attendee.city,
+      phone: attendee.phone,
+      email: attendee.email,
+      profilePhotoUrl: attendee.profilePhotoUrl,
+      companyLogoUrl: attendee.companyLogoUrl,
+    };
+  }
+
+  // ──────────────────────────────────────────────
+  // Generate vCard (Attendee)
+  // ──────────────────────────────────────────────
+
+  async generateVCard(requesterId: string, targetAttendeeId: string) {
+    // Cannot request own vCard
+    if (requesterId === targetAttendeeId) {
+      throw new BadRequestException('Cannot request your own vCard');
+    }
+
+    // Fetch both attendees to determine the event
+    const [requester, target] = await Promise.all([
+      this.prisma.attendee.findUnique({ where: { id: requesterId } }),
+      this.prisma.attendee.findUnique({ where: { id: targetAttendeeId } }),
+    ]);
+
+    if (!requester) {
+      throw new NotFoundException('Requester not found');
+    }
+
+    if (!target) {
+      throw new NotFoundException('Target attendee not found');
+    }
+
+    // Verify both attendees belong to the same event
+    if (requester.eventId !== target.eventId) {
+      throw new ForbiddenException('Attendees are not in the same event');
+    }
+
+    // Check for ACCEPTED connection between requester and target in either direction
+    const connection = await this.prisma.connectionRequest.findFirst({
+      where: {
+        eventId: requester.eventId,
+        status: ConnectionStatus.ACCEPTED,
+        OR: [
+          {
+            senderId: requesterId,
+            receiverId: targetAttendeeId,
+          },
+          {
+            senderId: targetAttendeeId,
+            receiverId: requesterId,
+          },
+        ],
+      },
+    });
+
+    if (!connection) {
+      throw new ForbiddenException(
+        'An accepted connection is required to view this contact card',
+      );
+    }
+
+    // Generate vCard 3.0
+    const lines: string[] = [
+      'BEGIN:VCARD',
+      'VERSION:3.0',
+      `FN:${target.firstName} ${target.lastName}`,
+      `N:${target.lastName};${target.firstName};;;`,
+    ];
+
+    if (target.company) {
+      lines.push(`ORG:${target.company}`);
+    }
+
+    if (target.designation) {
+      lines.push(`TITLE:${target.designation}`);
+    }
+
+    if (target.email) {
+      lines.push(`EMAIL;TYPE=INTERNET:${target.email}`);
+    }
+
+    if (target.phone) {
+      lines.push(`TEL;TYPE=CELL:${target.phone}`);
+    }
+
+    if (target.city || target.address) {
+      const addressParts = ['', '', target.address ?? '', target.city ?? '', '', '', ''];
+      lines.push(`ADR;TYPE=WORK:${addressParts.join(';')}`);
+    }
+
+    // Build NOTE from business details
+    const noteParts: string[] = [];
+    if (target.businessType) noteParts.push(`Type: ${target.businessType}`);
+    if (target.industry) noteParts.push(`Industry: ${target.industry}`);
+
+    const services = target.services as string[] | null;
+    if (services && Array.isArray(services) && services.length > 0) {
+      noteParts.push(`Services: ${services.join(', ')}`);
+    }
+
+    if (noteParts.length > 0) {
+      lines.push(`NOTE:${noteParts.join(' | ')}`);
+    }
+
+    lines.push('END:VCARD');
+
+    const vCardContent = lines.join('\r\n');
+
+    this.logger.log(
+      `vCard generated: requester=${requesterId}, target=${targetAttendeeId}`,
+    );
+
+    return {
+      contentType: 'text/vcard',
+      filename: `${target.firstName}_${target.lastName}.vcf`,
+      content: vCardContent,
+    };
+  }
+}

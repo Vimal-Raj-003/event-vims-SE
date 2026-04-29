@@ -1,0 +1,336 @@
+// VIMS Event Networking Platform — Database Schema
+// Neon Serverless PostgreSQL 16 with Row-Level Security
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  // uncomment next line if you use Prisma <5.10
+  // directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+// ─── ENUMS ───
+
+enum UserRole {
+  SUPER_ADMIN
+  ORGANISER
+  ATTENDEE
+}
+
+enum OrganiserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  DELETED
+}
+
+enum ConnectionStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  WITHDRAWN
+}
+
+enum DeletionRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PROCESSING
+  COMPLETED
+}
+
+// ─── SUPER ADMIN ───
+
+model SuperAdmin {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  name         String
+  mfaEnabled   Boolean   @default(false) @map("mfa_enabled")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@map("super_admins")
+}
+
+// ─── ORGANISERS ───
+
+model Organiser {
+  id              String           @id @default(cuid())
+  name            String
+  organisation    String
+  email           String           @unique
+  passwordHash    String           @map("password_hash")
+  mobile          String
+  status          OrganiserStatus  @default(ACTIVE)
+  emailVerifiedAt DateTime?        @map("email_verified_at")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  events          Event[]
+  announcements   Announcement[]
+  auditLogs       AuditLog[]
+
+  @@map("organisers")
+}
+
+// ─── EVENTS ───
+
+model Event {
+  id             String      @id @default(cuid())
+  organiserId    String      @map("organiser_id")
+  slug           String      @unique
+  shortHash      String      @unique @map("short_hash")
+  name           String
+  description    String      @db.VarChar(500)
+  startAt        DateTime    @map("start_at")
+  endAt          DateTime    @map("end_at")
+  venue          String
+  venueMapUrl    String?     @map("venue_map_url")
+  expectedCount  Int?        @map("expected_count")
+  brandLogoUrl   String?     @map("brand_logo_url")
+  brandPrimary   String      @default("#4F46E5") @map("brand_primary")
+  brandSecondary String      @default("#818CF8") @map("brand_secondary")
+  bannerUrl      String?     @map("banner_url")
+  qrUrl          String?     @map("qr_url")
+  status         EventStatus @default(DRAFT)
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  organiser        Organiser            @relation(fields: [organiserId], references: [id])
+  fieldConfigs     EventFieldConfig[]
+  eventRules       EventRule?
+  attendees        Attendee[]
+  connections      ConnectionRequest[]
+  announcements    Announcement[]
+  deletionRequests DataDeletionRequest[]
+
+  @@index([organiserId])
+  @@index([status])
+  @@index([startAt])
+  @@map("events")
+}
+
+model EventFieldConfig {
+  id         String  @id @default(cuid())
+  eventId    String  @map("event_id")
+  fieldKey   String  @map("field_key")
+  isRequired Boolean @default(true) @map("is_required")
+  isVisible  Boolean @default(true) @map("is_visible")
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, fieldKey])
+  @@map("event_field_config")
+}
+
+model EventRule {
+  id                        String  @id @default(cuid())
+  eventId                   String  @unique @map("event_id")
+  maxConnectionsPerAttendee String? @map("max_connections_per_attendee")
+  showAddressAfterAccept    Boolean @default(true) @map("show_address_after_accept")
+  allowVcardDownload        Boolean @default(true) @map("allow_vcard_download")
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@map("event_rules")
+}
+
+// ─── ATTENDEES ───
+
+model Attendee {
+  id              String   @id @default(cuid())
+  eventId         String   @map("event_id")
+  firstName       String   @map("first_name")
+  lastName        String   @map("last_name")
+  email           String
+  phone           String
+  designation     String
+  company         String
+  businessType    String   @map("business_type")
+  industry        String
+  services        Json     @default("[]")
+  city            String
+  address         String?
+  companySize     String?  @map("company_size")
+  tags            Json     @default("[]")
+  profilePhotoUrl String?  @map("profile_photo_url")
+  companyLogoUrl  String?  @map("company_logo_url")
+  registeredAt    DateTime @default(now()) @map("registered_at")
+  lastActiveAt    DateTime @default(now()) @map("last_active_at")
+  isPaused        Boolean  @default(false) @map("is_paused")
+  consentGiven    Boolean  @default(false) @map("consent_given")
+  consentedAt     DateTime? @map("consented_at")
+
+  event               Event               @relation(fields: [eventId], references: [id])
+  sentConnections     ConnectionRequest[] @relation("SentConnections")
+  receivedConnections ConnectionRequest[] @relation("ReceivedConnections")
+  pushSubscriptions   PushSubscription[]
+  notifications       Notification[]
+
+  @@unique([eventId, email])
+  @@index([eventId])
+  @@index([eventId, businessType])
+  @@index([eventId, industry])
+  @@index([eventId, city])
+  @@index([eventId, companySize])
+  @@map("attendees")
+}
+
+// ─── CONNECTIONS ───
+
+model ConnectionRequest {
+  id          String           @id @default(cuid())
+  eventId     String           @map("event_id")
+  senderId    String           @map("sender_id")
+  receiverId  String           @map("receiver_id")
+  status      ConnectionStatus @default(PENDING)
+  message     String?          @db.VarChar(200)
+  createdAt   DateTime         @default(now()) @map("created_at")
+  respondedAt DateTime?        @map("responded_at")
+
+  event    Event     @relation(fields: [eventId], references: [id])
+  sender   Attendee  @relation("SentConnections", fields: [senderId], references: [id])
+  receiver Attendee  @relation("ReceivedConnections", fields: [receiverId], references: [id])
+
+  @@unique([eventId, senderId, receiverId])
+  @@index([eventId, receiverId, status])
+  @@index([eventId, senderId, status])
+  @@index([eventId, status])
+  @@map("connection_requests")
+}
+
+// ─── ANNOUNCEMENTS ───
+
+model Announcement {
+  id             String   @id @default(cuid())
+  eventId        String   @map("event_id")
+  organiserId    String   @map("organiser_id")
+  title          String
+  body           String   @db.VarChar(500)
+  linkUrl        String?  @map("link_url")
+  sentAt         DateTime @default(now()) @map("sent_at")
+  recipientCount Int      @default(0) @map("recipient_count")
+  openedCount    Int      @default(0) @map("opened_count")
+
+  event     Event     @relation(fields: [eventId], references: [id])
+  organiser Organiser @relation(fields: [organiserId], references: [id])
+
+  @@index([eventId, sentAt])
+  @@map("announcements")
+}
+
+// ─── AUDIT LOG ───
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?  @map("actor_id")
+  actorRole  String?  @map("actor_role")
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String?  @map("entity_id")
+  metadata   Json     @default("{}")
+  ip         String?
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  organiser Organiser? @relation(fields: [actorId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([actorId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ─── DATA DELETION REQUESTS ───
+
+model DataDeletionRequest {
+  id             String               @id @default(cuid())
+  requesterEmail String               @map("requester_email")
+  eventId        String?              @map("event_id")
+  reason         String?
+  status         DeletionRequestStatus @default(PENDING)
+  requestedAt    DateTime             @default(now()) @map("requested_at")
+  processedAt    DateTime?            @map("processed_at")
+  processedBy    String?              @map("processed_by")
+
+  event Event? @relation(fields: [eventId], references: [id])
+
+  @@index([status])
+  @@index([requesterEmail])
+  @@map("data_deletion_requests")
+}
+
+// ─── OTP VERIFICATIONS ───
+
+model OtpVerification {
+  id        String    @id @default(cuid())
+  email     String
+  otpHash   String    @map("otp_hash")
+  purpose   String
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([email, purpose, expiresAt])
+  @@map("otp_verifications")
+}
+
+// ─── REFRESH TOKENS ───
+
+model RefreshToken {
+  id         String    @id @default(cuid())
+  userId     String    @map("user_id")
+  userRole   String    @map("user_role")
+  tokenHash  String    @unique @map("token_hash")
+  expiresAt  DateTime  @map("expires_at")
+  revokedAt  DateTime? @map("revoked_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@index([userId, userRole])
+  @@index([tokenHash])
+  @@map("refresh_tokens")
+}
+
+// ─── PUSH SUBSCRIPTIONS ───
+
+model PushSubscription {
+  id         String   @id @default(cuid())
+  attendeeId String   @map("attendee_id")
+  endpoint   String   @unique
+  p256dh     String
+  auth       String
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  attendee Attendee @relation(fields: [attendeeId], references: [id], onDelete: Cascade)
+
+  @@index([attendeeId])
+  @@map("push_subscriptions")
+}
+
+// ─── NOTIFICATIONS (IN-APP) ───
+
+model Notification {
+  id             String   @id @default(cuid())
+  attendeeId     String   @map("attendee_id")
+  eventType      String   @map("event_type")
+  title          String
+  body           String
+  isRead         Boolean  @default(false) @map("is_read")
+  relatedEntityId String? @map("related_entity_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  attendee Attendee @relation(fields: [attendeeId], references: [id], onDelete: Cascade)
+
+  @@index([attendeeId, isRead])
+  @@index([attendeeId, createdAt])
+  @@map("notifications")
+}
