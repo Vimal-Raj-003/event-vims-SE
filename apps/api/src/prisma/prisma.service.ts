@@ -8,42 +8,48 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   constructor() {
     super({
       log: [
-        { emit: 'event', level: 'query' },
         { emit: 'event', level: 'error' },
         { emit: 'event', level: 'warn' },
       ],
     });
-
     this.registerLogging();
   }
 
   private registerLogging(): void {
-    (this as any).$on('query', (e: { query: string; duration: number }) => {
-      if (process.env.NODE_ENV === 'development') {
-        this.logger.debug(`Query: ${e.query} — ${e.duration}ms`);
-      }
-    });
-
     (this as any).$on('error', (e: { message: string }) => {
       this.logger.error(`Prisma error: ${e.message}`);
     });
-
     (this as any).$on('warn', (e: { message: string }) => {
       this.logger.warn(`Prisma warning: ${e.message}`);
     });
   }
 
   async onModuleInit(): Promise<void> {
-    await this.$connect();
-    this.logger.log('Database connection established');
+    const maxRetries = 8;
+    const delayMs = 3000;
 
-    await this.$executeRaw`SELECT 1`;
-    this.logger.log('Database connectivity verified');
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await this.$connect();
+        await this.$executeRaw`SELECT 1`;
+        this.logger.log(`Database connected (attempt ${attempt})`);
+        return;
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (attempt < maxRetries) {
+          this.logger.warn(
+            `DB not ready (attempt ${attempt}/${maxRetries}) — Neon may be waking up. Retrying in ${delayMs / 1000}s… ${msg.slice(0, 80)}`,
+          );
+          await new Promise((r) => setTimeout(r, delayMs));
+        } else {
+          this.logger.error(`Database unreachable after ${maxRetries} attempts: ${msg}`);
+          throw err;
+        }
+      }
+    }
   }
 
   async onModuleDestroy(): Promise<void> {
-    this.logger.log('Disconnecting from database...');
     await this.$disconnect();
-    this.logger.log('Database connection closed');
   }
 }

@@ -1,175 +1,126 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useAuthStore } from "@/lib/stores/auth-store";
+import { apiClient } from "@/lib/api-client";
 
-const FILTER_CHIPS = [
-  "All",
-  "Software",
-  "AI / ML",
-  "SaaS",
-  "FinTech",
-  "HealthTech",
-  "Marketing",
-  "Design",
-  "Product",
-] as const;
-
-interface Attendee {
+interface AttendeeProfile {
   id: string;
-  name: string;
-  title: string;
+  firstName: string;
+  lastName: string;
+  designation: string;
   company: string;
-  tags: string[];
-  connected: boolean;
-  avatarUrl?: string;
+  industry: string;
+  city: string;
+  profilePhotoUrl?: string;
+  tags?: string[];
 }
 
-const MOCK_ATTENDEES: Attendee[] = [
-  { id: "a1", name: "Amara Kazeem", title: "Product Lead", company: "TechFlow", tags: ["AI / ML", "SaaS"], connected: true },
-  { id: "a2", name: "James Whitfield", title: "CTO", company: "Nimbus Data", tags: ["Software", "FinTech"], connected: false },
-  { id: "a3", name: "Priya Sharma", title: "VP Engineering", company: "ScaleGrid", tags: ["SaaS", "AI / ML"], connected: true },
-  { id: "a4", name: "Elena Rodriguez", title: "Design Director", company: "PixelCraft", tags: ["Design", "Product"], connected: false },
-  { id: "a5", name: "Tom Chen", title: "Founding Engineer", company: "Quickbase AI", tags: ["AI / ML", "Software"], connected: false },
-  { id: "a6", name: "Fatima Al-Rashid", title: "Head of Growth", company: "LaunchPad", tags: ["Marketing", "SaaS"], connected: true },
-  { id: "a7", name: "Oliver Barrett", title: "Solutions Architect", company: "CloudPeak", tags: ["Software", "FinTech"], connected: false },
-  { id: "a8", name: "Yuki Tanaka", title: "Product Manager", company: "HealthBridge", tags: ["HealthTech", "Product"], connected: false },
-  { id: "a9", name: "Sarah Kim", title: "ML Engineer", company: "DeepVision", tags: ["AI / ML", "Software"], connected: true },
-  { id: "a10", name: "Marcus Johnson", title: "CEO", company: "GreenFin", tags: ["FinTech", "SaaS"], connected: false },
-];
-
 export default function DirectoryPage() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [activeFilter, setActiveFilter] = useState<string>("All");
+  const [attendees, setAttendees] = useState<AttendeeProfile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const user = useAuthStore((s) => s.user) as { eventId?: string } | null;
+  const eventId = (user as { eventId?: string } | null)?.eventId;
 
-  const filtered = MOCK_ATTENDEES.filter((att) => {
-    const matchesSearch =
-      searchQuery === "" ||
-      att.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      att.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      att.title.toLowerCase().includes(searchQuery.toLowerCase());
+  const load = useCallback(async (p = 1, q = "") => {
+    if (!eventId) return;
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ page: String(p), pageSize: "20" });
+      if (q) params.set("search", q);
+      const { data } = await apiClient.get<{ data: AttendeeProfile[]; meta: { totalPages: number } }>(
+        `/events/${eventId}/attendees?${params}`
+      );
+      setAttendees(data.data ?? []);
+      setTotalPages(data.meta?.totalPages ?? 1);
+      setPage(p);
+    } catch {
+      setAttendees([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [eventId]);
 
-    const matchesFilter =
-      activeFilter === "All" || att.tags.includes(activeFilter);
+  useEffect(() => { load(1, ""); }, [load]);
 
-    return matchesSearch && matchesFilter;
-  });
+  // Debounce search
+  useEffect(() => {
+    const t = setTimeout(() => load(1, search), 400);
+    return () => clearTimeout(t);
+  }, [search, load]);
+
+  function getInitials(a: AttendeeProfile) {
+    return `${a.firstName?.[0] ?? ""}${a.lastName?.[0] ?? ""}`.toUpperCase();
+  }
 
   return (
-    <div>
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-foreground">Attendee Directory</h1>
-        <span className="text-sm text-muted-foreground">
-          {MOCK_ATTENDEES.length} people
-        </span>
+        <span className="text-xs text-muted-foreground">{attendees.length} people</span>
       </div>
 
-      {/* Search bar */}
-      <div className="relative mt-4">
-        <svg
-          className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2}
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
-          />
+      {/* Search */}
+      <div className="relative">
+        <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 15.803a7.5 7.5 0 0010.607 10.607z" />
         </svg>
         <input
-          type="search"
-          placeholder="Search by name, company, or title..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full rounded-xl border border-border bg-muted/50 py-2.5 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search name, company…"
+          className="w-full rounded-xl border border-border bg-muted/40 pl-9 pr-4 py-2.5 text-sm focus:border-primary focus:outline-none dark:bg-secondary"
         />
       </div>
 
-      {/* Filter chips */}
-      <div className="mt-3 flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-        {FILTER_CHIPS.map((chip) => (
-          <button
-            key={chip}
-            onClick={() => setActiveFilter(chip)}
-            className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-              activeFilter === chip
-                ? "bg-primary text-white"
-                : "bg-muted text-muted-foreground hover:bg-muted/80"
-            }`}
-          >
-            {chip}
-          </button>
-        ))}
-      </div>
-
-      {/* Attendee cards */}
-      <div className="mt-4 space-y-3">
-        {filtered.length === 0 && (
-          <div className="py-12 text-center">
-            <p className="text-sm text-muted-foreground">
-              No attendees match your search.
-            </p>
-          </div>
-        )}
-        {filtered.map((attendee) => (
-          <div
-            key={attendee.id}
-            className="rounded-xl border border-border bg-white p-4 transition-all hover:border-primary/20 hover:shadow-sm"
-          >
-            <div className="flex items-start gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary">
-                {attendee.name
-                  .split(" ")
-                  .map((n) => n[0])
-                  .join("")}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-foreground truncate">
-                    {attendee.name}
-                  </h3>
-                  {attendee.connected && (
-                    <span className="ml-2 shrink-0 rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
-                      Connected
-                    </span>
-                  )}
-                </div>
-                <p className="mt-0.5 text-xs text-muted-foreground truncate">
-                  {attendee.title} at {attendee.company}
-                </p>
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {attendee.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="rounded-full bg-primary-50 px-2 py-0.5 text-[10px] font-medium text-primary"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-            <div className="mt-3 flex gap-2">
-              {attendee.connected ? (
-                <button className="flex-1 rounded-lg border border-border py-2 text-xs font-medium text-muted-foreground hover:bg-muted">
-                  View Card
-                </button>
+      {loading ? (
+        <div className="flex h-48 items-center justify-center">
+          <div className="h-7 w-7 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        </div>
+      ) : attendees.length === 0 ? (
+        <div className="flex h-48 flex-col items-center justify-center text-center gap-2">
+          <p className="text-3xl">👥</p>
+          <p className="text-sm font-semibold text-muted-foreground">No attendees found</p>
+          {search && <button onClick={() => setSearch("")} className="text-xs text-primary hover:underline">Clear search</button>}
+        </div>
+      ) : (
+        <div className="grid gap-3">
+          {attendees.map((a) => (
+            <div key={a.id} className="flex items-center gap-3 rounded-2xl border border-border bg-white dark:bg-card p-3 hover:shadow-md hover:-translate-y-0.5 transition-all">
+              {a.profilePhotoUrl ? (
+                <img src={a.profilePhotoUrl} alt={a.firstName} className="h-11 w-11 rounded-full object-cover shrink-0" />
               ) : (
-                <button className="flex-1 rounded-lg bg-primary py-2 text-xs font-medium text-white hover:bg-primary-600">
-                  Connect
-                </button>
+                <div className="h-11 w-11 rounded-full bg-gradient-to-br from-primary to-violet-500 flex items-center justify-center text-sm font-bold text-white shrink-0">
+                  {getInitials(a)}
+                </div>
               )}
-              <button className="rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted">
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
-                </svg>
-              </button>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-foreground truncate">{a.firstName} {a.lastName}</p>
+                <p className="text-xs text-muted-foreground truncate">{a.designation} · {a.company}</p>
+              </div>
+              <span className="shrink-0 text-[10px] text-muted-foreground bg-muted rounded-lg px-2 py-1">{a.industry}</span>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-3 pt-2">
+          <button onClick={() => load(page - 1, search)} disabled={page === 1}
+            className="rounded-xl border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-40 hover:bg-muted transition-colors">
+            Prev
+          </button>
+          <span className="text-xs text-muted-foreground">{page} / {totalPages}</span>
+          <button onClick={() => load(page + 1, search)} disabled={page === totalPages}
+            className="rounded-xl border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-40 hover:bg-muted transition-colors">
+            Next
+          </button>
+        </div>
+      )}
     </div>
   );
 }

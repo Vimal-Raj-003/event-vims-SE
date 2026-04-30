@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
+import { PrismaService } from '../../prisma/prisma.service';
 
 export interface JwtPayload {
   sub: string;
@@ -15,7 +16,10 @@ export interface JwtPayload {
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly prisma: PrismaService,
+  ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
@@ -32,6 +36,17 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
 
     if (!payload.sub || !payload.email || !payload.role) {
       throw new UnauthorizedException('Invalid token payload.');
+    }
+
+    // Check suspended organiser accounts on every request
+    if (payload.role.toLowerCase() === 'organiser') {
+      const organiser = await this.prisma.organiser.findUnique({
+        where: { id: payload.sub },
+        select: { status: true },
+      });
+      if (!organiser || organiser.status === 'SUSPENDED') {
+        throw new UnauthorizedException('Account is suspended or not found.');
+      }
     }
 
     return payload;

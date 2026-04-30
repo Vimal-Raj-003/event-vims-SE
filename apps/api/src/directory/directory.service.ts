@@ -188,8 +188,9 @@ export class DirectoryService {
       ) cs ON true
       WHERE ${whereClause}
       ORDER BY a.first_name ASC, a.last_name ASC
-      LIMIT ${safePageSize} OFFSET ${skip}
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
+    params.push(safePageSize, skip);
 
     const rows = await this.prisma.$queryRawUnsafe<
       Array<{

@@ -70,6 +70,14 @@ export default function NewEventPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError("");
+    if (!form.startAt || !form.endAt) {
+      setError("Please select both start and end date/time.");
+      return;
+    }
+    if (new Date(form.endAt) <= new Date(form.startAt)) {
+      setError("End date/time must be after start date/time.");
+      return;
+    }
     setSubmitting(true);
     try {
       const payload = {

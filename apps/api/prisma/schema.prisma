@@ -21,19 +21,21 @@ model SuperAdmin {
 }
 
 model Organiser {
-  id              String          @id @default(cuid())
+  id              String             @id @default(cuid())
   name            String
   organisation    String
-  email           String          @unique
-  passwordHash    String          @map("password_hash")
+  email           String             @unique
+  passwordHash    String             @map("password_hash")
   mobile          String
-  status          OrganiserStatus @default(ACTIVE)
-  emailVerifiedAt DateTime?       @map("email_verified_at")
-  createdAt       DateTime        @default(now()) @map("created_at")
-  updatedAt       DateTime        @updatedAt @map("updated_at")
+  status          OrganiserStatus    @default(ACTIVE)
+  emailVerifiedAt DateTime?          @map("email_verified_at")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
   announcements   Announcement[]
   auditLogs       AuditLog[]
   events          Event[]
+  supportTickets  SupportTicket[]
+  settings        OrganiserSettings?
 
   @@map("organisers")
 }
@@ -264,6 +266,65 @@ model Notification {
   @@index([attendeeId, isRead])
   @@index([attendeeId, createdAt])
   @@map("notifications")
+}
+
+model SupportTicket {
+  id          String         @id @default(cuid())
+  organiserId String         @map("organiser_id")
+  subject     String
+  description String         @db.VarChar(1000)
+  category    TicketCategory
+  status      TicketStatus   @default(OPEN)
+  priority    TicketPriority @default(MEDIUM)
+  adminNote   String?        @map("admin_note")
+  resolvedAt  DateTime?      @map("resolved_at")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+  organiser   Organiser      @relation(fields: [organiserId], references: [id])
+
+  @@index([organiserId])
+  @@index([status])
+  @@map("support_tickets")
+}
+
+model OrganiserSettings {
+  id                         String    @id @default(cuid())
+  organiserId                String    @unique @map("organiser_id")
+  defaultBrandPrimary        String    @default("#4F46E5") @map("default_brand_primary")
+  defaultBrandSecondary      String    @default("#818CF8") @map("default_brand_secondary")
+  defaultMaxConnections      String    @default("50") @map("default_max_connections")
+  defaultShowAddress         Boolean   @default(true) @map("default_show_address")
+  defaultAllowVcard          Boolean   @default(true) @map("default_allow_vcard")
+  notifyAttendeeRegister     Boolean   @default(true) @map("notify_attendee_register")
+  notifyConnectionMilestone  Boolean   @default(true) @map("notify_connection_milestone")
+  notifyAnnouncementDelivery Boolean   @default(false) @map("notify_announcement_delivery")
+  createdAt                  DateTime  @default(now()) @map("created_at")
+  updatedAt                  DateTime  @updatedAt @map("updated_at")
+  organiser                  Organiser @relation(fields: [organiserId], references: [id], onDelete: Cascade)
+
+  @@map("organiser_settings")
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum TicketCategory {
+  EVENT_ISSUE
+  ATTENDEE_ISSUE
+  TECHNICAL
+  ACCOUNT
+  OTHER
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
 }
 
 enum UserRole {

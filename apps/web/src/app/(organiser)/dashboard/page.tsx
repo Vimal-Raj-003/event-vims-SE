@@ -107,28 +107,45 @@ export default function DashboardPage() {
   useAuthStore((s) => s.user);
   const [stats, setStats] = useState<DashStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [secondsAgo, setSecondsAgo] = useState(0);
+
+  async function load() {
+    try {
+      const { data } = await apiClient.get<Event[]>("/events");
+      const events = data ?? [];
+      setStats({
+        totalEvents: events.length,
+        totalAttendees: events.reduce((s, e) => s + (e.attendeeCount ?? 0), 0),
+        liveCount: events.filter((e) => e.status === "PUBLISHED").length,
+        upcomingCount: events.filter((e) => e.status === "DRAFT").length,
+        endedCount: events.filter((e) => e.status === "ENDED").length,
+        events: events.slice(0, 6),
+      });
+      setLastUpdated(new Date());
+      setSecondsAgo(0);
+    } catch {
+      setStats({ totalEvents: 0, totalAttendees: 0, liveCount: 0, upcomingCount: 0, endedCount: 0, events: [] });
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    async function load() {
-      try {
-        const { data } = await apiClient.get<Event[]>("/events");
-        const events = data ?? [];
-        setStats({
-          totalEvents: events.length,
-          totalAttendees: events.reduce((s, e) => s + (e.attendeeCount ?? 0), 0),
-          liveCount: events.filter((e) => e.status === "PUBLISHED").length,
-          upcomingCount: events.filter((e) => e.status === "DRAFT").length,
-          endedCount: events.filter((e) => e.status === "ENDED").length,
-          events: events.slice(0, 6),
-        });
-      } catch {
-        setStats({ totalEvents: 0, totalAttendees: 0, liveCount: 0, upcomingCount: 0, endedCount: 0, events: [] });
-      } finally {
-        setLoading(false);
-      }
-    }
     load();
+    const poll = setInterval(load, 30_000);
+    return () => clearInterval(poll);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Tick seconds-ago counter
+  useEffect(() => {
+    if (!lastUpdated) return;
+    const tick = setInterval(() => {
+      setSecondsAgo(Math.floor((Date.now() - lastUpdated.getTime()) / 1000));
+    }, 5000);
+    return () => clearInterval(tick);
+  }, [lastUpdated]);
 
   const maxAttendees = Math.max(...(stats?.events.map((e) => e.attendeeCount) ?? [1]), 1);
 
@@ -158,7 +175,17 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="h-full flex flex-col gap-4 overflow-hidden">
+    <div className="flex flex-col gap-4">
+
+      {/* ── Updated badge ─────────────────────────────────────────── */}
+      {lastUpdated && (
+        <div className="flex justify-end -mb-2">
+          <span className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            Updated {secondsAgo < 10 ? "just now" : `${secondsAgo}s ago`}
+          </span>
+        </div>
+      )}
 
       {/* ── Row 1: KPI cards ───────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -169,6 +196,7 @@ export default function DashboardPage() {
             bars: [1,2,stats?.endedCount??0, stats?.liveCount??0, stats?.totalEvents??0],
             barColor: "#4f46e5",
             sub: `${stats?.liveCount ?? 0} live · ${stats?.upcomingCount ?? 0} draft`,
+            gFrom: "#4f46e5", gTo: "#7c3aed", dot: "#4f46e5",
           },
           {
             label: "Total Attendees", value: stats?.totalAttendees ?? 0,
@@ -176,6 +204,7 @@ export default function DashboardPage() {
             bars: barValues.slice(-5),
             barColor: "#7c3aed",
             sub: `Across ${stats?.totalEvents ?? 0} events`,
+            gFrom: "#7c3aed", gTo: "#a855f7", dot: "#7c3aed",
           },
           {
             label: "Live Events", value: stats?.liveCount ?? 0,
@@ -183,6 +212,7 @@ export default function DashboardPage() {
             bars: [0, stats?.liveCount??0, stats?.liveCount??0],
             barColor: "#10b981",
             sub: "Currently active",
+            gFrom: "#10b981", gTo: "#059669", dot: "#10b981",
           },
           {
             label: "Avg. Attendance", value: stats?.totalEvents
@@ -191,10 +221,24 @@ export default function DashboardPage() {
             bars: barValues.slice(-5),
             barColor: "#d97706",
             sub: "Per event average",
+            gFrom: "#d97706", gTo: "#f59e0b", dot: "#d97706",
           },
         ].map((kpi) => (
-          <div key={kpi.label} className="group rounded-2xl border border-border bg-white p-4 transition-all duration-200 hover:shadow-lg hover:shadow-black/5 hover:-translate-y-0.5">
-            <div className="flex items-start justify-between">
+          <div key={kpi.label} className="group relative rounded-2xl border border-border bg-white dark:bg-card p-4 overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:border-transparent">
+            {/* Dot-grid pattern */}
+            <svg className="absolute inset-0 w-full h-full opacity-[0.04] group-hover:opacity-[0.09] transition-opacity duration-300 pointer-events-none" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <pattern id={`dots-${kpi.label}`} x="0" y="0" width="16" height="16" patternUnits="userSpaceOnUse">
+                  <circle cx="2" cy="2" r="1.5" fill={kpi.dot} />
+                </pattern>
+              </defs>
+              <rect width="100%" height="100%" fill={`url(#dots-${kpi.label})`} />
+            </svg>
+            {/* Gradient wash on hover */}
+            <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+                 style={{ background: `linear-gradient(135deg, ${kpi.gFrom}22, ${kpi.gTo}0a)` }} />
+            {/* Content */}
+            <div className="relative flex items-start justify-between">
               <div>
                 <p className="text-xs font-medium text-muted-foreground">{kpi.label}</p>
                 <p className={`mt-1 text-2xl font-extrabold tracking-tight ${kpi.color}`}>
@@ -214,10 +258,10 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Row 2: Charts + Event list ─────────────────────────────── */}
-      <div className="flex-1 grid gap-3 lg:grid-cols-3 min-h-0">
+      <div className="grid gap-3 lg:grid-cols-3" style={{ minHeight: "340px" }}>
 
         {/* Attendees bar chart */}
-        <div className="lg:col-span-2 rounded-2xl border border-border bg-white p-5 flex flex-col min-h-0">
+        <div className="lg:col-span-2 rounded-2xl border border-border bg-white p-5 flex flex-col">
           <div className="flex items-center justify-between mb-4 shrink-0">
             <div>
               <p className="text-sm font-bold text-foreground">Attendees per Event</p>
@@ -271,7 +315,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Right column: Donut + Event list */}
-        <div className="flex flex-col gap-3 min-h-0">
+        <div className="flex flex-col gap-3">
           {/* Event status donut */}
           <div className="rounded-2xl border border-border bg-white p-4 shrink-0">
             <p className="text-sm font-bold text-foreground mb-3">Event Status</p>
@@ -294,9 +338,9 @@ export default function DashboardPage() {
           </div>
 
           {/* Recent events list */}
-          <div className="flex-1 rounded-2xl border border-border bg-white p-4 flex flex-col min-h-0 overflow-hidden">
-            <p className="text-sm font-bold text-foreground mb-3 shrink-0">Recent Events</p>
-            <div className="flex-1 space-y-2 overflow-y-auto scrollbar-none">
+          <div className="rounded-2xl border border-border bg-white p-4 flex flex-col">
+            <p className="text-sm font-bold text-foreground mb-3">Recent Events</p>
+            <div className="space-y-2 max-h-60 overflow-y-auto scrollbar-none">
               {stats?.events.length === 0 && (
                 <p className="text-xs text-muted-foreground text-center py-4">No events yet</p>
               )}

@@ -22,12 +22,14 @@ export default function AttendeeLoginPage() {
     setError("");
     setLoading(true);
     try {
-      await apiClient.post("/auth/attendee/request-otp", {
-        email: form.email,
-        eventId: form.eventId,
-      });
+      const { data } = await apiClient.post<{ message?: string; otpToken?: string; otp?: string }>(
+        "/auth/attendee/request-otp",
+        { email: form.email, eventId: form.eventId },
+      );
+      // Dev mode: OTP returned in response body
+      const otp = data?.otpToken ?? data?.otp ?? null;
       router.push(
-        `/auth/attendee/verify?email=${encodeURIComponent(form.email)}&eventId=${encodeURIComponent(form.eventId)}`
+        `/auth/attendee/verify?email=${encodeURIComponent(form.email)}&eventId=${encodeURIComponent(form.eventId)}${otp ? `&devOtp=${otp}` : ""}`
       );
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
@@ -111,11 +113,13 @@ export default function AttendeeLoginPage() {
         </button>
       </form>
 
-      <div className="mt-4 rounded-2xl bg-muted/50 border border-border px-4 py-3">
-        <p className="text-xs text-muted-foreground font-medium">Test credentials</p>
-        <p className="text-xs text-foreground mt-0.5">Email: rahul.krishnan@gmail.com</p>
-        <p className="text-xs text-foreground">Event ID: cmoj5g67h0003n628x95wm4a9</p>
-      </div>
+      {process.env.NODE_ENV === "development" && (
+        <div className="mt-4 rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3">
+          <p className="text-xs font-semibold text-amber-700">Dev mode — test credentials</p>
+          <p className="text-xs text-amber-900 mt-0.5 font-mono">rahul.krishnan@gmail.com</p>
+          <p className="text-xs text-amber-900 font-mono">Event ID: cmoj5g67h0003n628x95wm4a9</p>
+        </div>
+      )}
 
       <p className="mt-6 text-center text-sm text-muted-foreground">
         Are you an organiser?{" "}

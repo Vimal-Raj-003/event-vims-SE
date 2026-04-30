@@ -134,13 +134,9 @@ export default function AdminOverviewPage() {
   return (
     <div className="flex flex-col gap-4 h-full overflow-y-auto scrollbar-none pb-4">
 
-      {/* Header */}
-      <div className="flex items-center justify-between shrink-0">
-        <div>
-          <h1 className="text-xl font-extrabold text-foreground tracking-tight">Platform Overview</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">Real-time analytics across all VIMS Events tenants</p>
-        </div>
-        <span className="flex items-center gap-2 rounded-full bg-emerald-50 border border-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+      {/* Status badge */}
+      <div className="flex justify-end shrink-0">
+        <span className="flex items-center gap-2 rounded-full bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/50 px-3 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
           All systems operational
         </span>
@@ -148,9 +144,31 @@ export default function AdminOverviewPage() {
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 shrink-0">
-        {kpis.map((k) => (
-          <div key={k.label} className="group rounded-2xl border border-border bg-white p-4 hover:shadow-lg hover:shadow-black/5 hover:-translate-y-0.5 transition-all duration-200">
-            <div className="flex items-start justify-between">
+        {kpis.map((k) => {
+          const dotColorMap: Record<string, string> = {
+            "#4f46e5": "#4f46e5", "#7c3aed": "#7c3aed", "#10b981": "#10b981", "#d97706": "#d97706",
+          };
+          const gFromMap: Record<string, string> = {
+            "#4f46e5": "#4f46e5", "#7c3aed": "#7c3aed", "#10b981": "#10b981", "#d97706": "#d97706",
+          };
+          const dot = dotColorMap[k.barC] ?? k.barC;
+          const gFrom = gFromMap[k.barC] ?? k.barC;
+          return (
+          <div key={k.label} className="group relative rounded-2xl border border-border bg-white dark:bg-card p-4 overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:border-transparent">
+            {/* Dot-grid pattern */}
+            <svg className="absolute inset-0 w-full h-full opacity-[0.04] group-hover:opacity-[0.09] transition-opacity duration-300 pointer-events-none" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <pattern id={`adots-${k.label}`} x="0" y="0" width="16" height="16" patternUnits="userSpaceOnUse">
+                  <circle cx="2" cy="2" r="1.5" fill={dot} />
+                </pattern>
+              </defs>
+              <rect width="100%" height="100%" fill={`url(#adots-${k.label})`} />
+            </svg>
+            {/* Gradient wash on hover */}
+            <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+                 style={{ background: `linear-gradient(135deg, ${gFrom}22, ${gFrom}0a)` }} />
+            {/* Content */}
+            <div className="relative flex items-start justify-between">
               <div>
                 <p className="text-xs font-medium text-muted-foreground">{k.label}</p>
                 <p className={`mt-1 text-2xl font-extrabold tracking-tight ${k.color}`}>{k.value.toLocaleString()}</p>
@@ -162,7 +180,8 @@ export default function AdminOverviewPage() {
               </div>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Charts + lists row */}

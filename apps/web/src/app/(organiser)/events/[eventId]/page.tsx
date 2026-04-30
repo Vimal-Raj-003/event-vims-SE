@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { apiClient } from "@/lib/api-client";
 
 interface EventData {
@@ -93,6 +92,7 @@ export default function EventDetailPage() {
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [loading, setLoading] = useState(true);
   const [publishing, setPublishing] = useState(false);
+  const [publishError, setPublishError] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -115,11 +115,13 @@ export default function EventDetailPage() {
 
   async function handlePublish() {
     setPublishing(true);
+    setPublishError("");
     try {
       await apiClient.post(`/events/${eventId}/publish`);
       await load();
-    } catch {
-      /* ignore */
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setPublishError(msg ?? "Failed to publish event. Please try again.");
     } finally {
       setPublishing(false);
     }
@@ -144,7 +146,8 @@ export default function EventDetailPage() {
 
   const cfg = (STATUS_CFG[event.status] ?? STATUS_CFG["DRAFT"])!;
   const date = new Date(event.startAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
-  const joinUrl = `${process.env.NEXT_PUBLIC_API_URL?.replace("/api/v1", "") ?? "http://localhost:3000"}/auth/attendee/register?eventId=${event.id}&eventName=${encodeURIComponent(event.name)}`;
+  const frontendOrigin = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
+  const joinUrl = `${frontendOrigin}/auth/attendee/register?eventId=${event.id}&eventName=${encodeURIComponent(event.name)}`;
   const qrImageSrc = `${API}/qr/${event.shortHash}/image`;
   const acceptPct = stats ? Math.round(stats.acceptanceRate) : 0;
   const fillPct = event.expectedCount && event.expectedCount > 0
@@ -184,6 +187,13 @@ export default function EventDetailPage() {
           </Link>
         </div>
       </div>
+
+      {publishError && (
+        <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shrink-0">
+          <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>
+          {publishError}
+        </div>
+      )}
 
       {/* ── KPI row ──────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 shrink-0">
@@ -267,48 +277,60 @@ export default function EventDetailPage() {
 
         {/* QR Code panel */}
         <div className="rounded-2xl border border-border bg-white p-5">
-          <p className="text-sm font-bold text-foreground mb-3">Event QR Code</p>
-          {event.status === "PUBLISHED" ? (
-            <div className="flex flex-col items-center gap-3">
-              <div className="rounded-2xl border border-border p-2 bg-white shadow-sm">
-                <Image
-                  src={qrImageSrc}
-                  alt="Event QR Code"
-                  width={140}
-                  height={140}
-                  className="rounded-xl"
-                  unoptimized
-                />
-              </div>
-              <div className="w-full">
-                <p className="text-[10px] text-muted-foreground mb-1">Attendee join link</p>
-                <div className="flex items-center gap-2">
-                  <p className="flex-1 truncate rounded-lg bg-muted/50 px-2 py-1 text-[10px] font-mono text-muted-foreground">{joinUrl}</p>
-                  <CopyButton text={joinUrl} />
-                </div>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm font-bold text-foreground">Event QR Code</p>
+            {event.status === "DRAFT" && (
+              <span className="rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-700">Draft</span>
+            )}
+          </div>
+          <div className="flex flex-col items-center gap-3">
+
+            {/* QR image — large, clearly visible */}
+            <div className="w-full flex items-center justify-center rounded-2xl bg-white border-2 border-primary/15 shadow-inner p-4">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={qrImageSrc}
+                alt="Scan to join event"
+                style={{ width: "180px", height: "180px", display: "block", imageRendering: "pixelated" }}
+                className="rounded-lg shadow-md"
+              />
+            </div>
+
+            <p className="text-[11px] text-center text-muted-foreground">
+              Scan to register for this event
+            </p>
+
+            {/* Download button */}
+            <a
+              href={`${API}/qr/${event.shortHash}/download`}
+              download
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:brightness-110 transition-all"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+              Download High-Res QR (800px)
+            </a>
+
+            {/* Join link */}
+            <div className="w-full">
+              <p className="text-[10px] font-medium text-muted-foreground mb-1">Attendee join link</p>
+              <div className="flex items-center gap-1.5">
+                <p className="flex-1 truncate rounded-lg bg-muted/50 border border-border px-2 py-1.5 text-[10px] font-mono text-muted-foreground">{joinUrl}</p>
+                <CopyButton text={joinUrl} />
               </div>
             </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center gap-3 py-6 text-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted">
-                <svg className="h-7 w-7 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75z" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-foreground">QR available after publish</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Publish this event to generate the QR code and join link</p>
-              </div>
+
+            {event.status === "DRAFT" && (
               <button
                 onClick={handlePublish}
                 disabled={publishing}
-                className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white hover:brightness-110 transition-all disabled:opacity-60"
+                className="w-full rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-100 transition-all disabled:opacity-60"
               >
-                {publishing ? "Publishing…" : "Publish Now"}
+                {publishing ? "Publishing…" : "Publish to activate QR"}
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 

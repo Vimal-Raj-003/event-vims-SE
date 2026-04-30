@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
 
+const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
+
 interface EventSettings {
   id: string;
   name: string;
@@ -15,6 +17,7 @@ interface EventSettings {
   brandPrimary: string;
   brandSecondary: string;
   qrUrl?: string;
+  shortHash: string;
   status: string;
 }
 
@@ -75,8 +78,9 @@ export default function EventSettingsPage() {
       <p className="mt-1 text-sm text-muted-foreground">Update your event details and branding</p>
 
       {event?.status === "PUBLISHED" && (
-        <div className="mt-4 rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-700">
-          This event is published. Changes will be visible immediately.
+        <div className="mt-4 flex items-center gap-2 rounded-xl bg-blue-50 border border-blue-100 px-4 py-3 text-sm text-blue-700">
+          <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          This event is live. Changes are saved and visible immediately to attendees.
         </div>
       )}
 
@@ -114,16 +118,33 @@ export default function EventSettingsPage() {
           </div>
         </div>
 
-        {event?.qrUrl && (
-          <div className="rounded-xl border border-border bg-muted/30 p-4">
-            <p className="text-sm font-medium text-foreground">QR Code</p>
-            <p className="mt-1 text-xs text-muted-foreground break-all">{event.qrUrl}</p>
-            <a href={event.qrUrl} download className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline">
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-              </svg>
-              Download QR Code
-            </a>
+        {event?.status === "PUBLISHED" && event.shortHash && (
+          <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-3">
+            <p className="text-sm font-semibold text-foreground">QR Code</p>
+            <div className="flex items-start gap-4">
+              <div className="rounded-xl border-2 border-primary/15 bg-white p-2 shadow-sm shrink-0">
+                <img
+                  src={`${API}/qr/${event.shortHash}/image`}
+                  alt="Event QR Code"
+                  style={{ width: 120, height: 120, display: "block", imageRendering: "pixelated" }}
+                  className="rounded-lg"
+                />
+              </div>
+              <div className="flex-1 min-w-0 space-y-2">
+                <p className="text-xs text-muted-foreground">Attendees scan this to register for your event</p>
+                <p className="text-[10px] font-mono text-muted-foreground break-all line-clamp-2">{event.qrUrl}</p>
+                <a
+                  href={`${API}/qr/${event.shortHash}/download`}
+                  download
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-xs font-bold text-white hover:brightness-110 active:scale-[0.98] transition-all"
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                  </svg>
+                  Download High-Res (800px)
+                </a>
+              </div>
+            </div>
           </div>
         )}
 

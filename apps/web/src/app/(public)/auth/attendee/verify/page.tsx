@@ -13,8 +13,12 @@ export default function AttendeeVerifyPage() {
   const email = searchParams.get("email") ?? "";
   const eventId = searchParams.get("eventId") ?? "";
   const eventName = searchParams.get("eventName") ?? "this event";
+  const isDev = process.env.NODE_ENV === "development";
+  const devOtpParam = isDev ? (searchParams.get("devOtp") ?? "") : "";
 
-  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const [otp, setOtp] = useState(() =>
+    isDev && devOtpParam.length === 6 ? devOtpParam.split("") : ["", "", "", "", "", ""]
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [resendCooldown, setResendCooldown] = useState(30);
@@ -94,6 +98,13 @@ export default function AttendeeVerifyPage() {
           We sent a 6-digit code to <span className="font-medium text-foreground">{email}</span>
         </p>
       </div>
+
+      {isDev && devOtpParam && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-center">
+          <p className="text-xs font-semibold text-amber-700">Dev mode — OTP auto-filled</p>
+          <p className="text-lg font-mono font-bold text-amber-900 tracking-widest mt-0.5">{devOtpParam}</p>
+        </div>
+      )}
 
       <form onSubmit={handleVerify} className="space-y-6">
         <div className="flex justify-center gap-3">

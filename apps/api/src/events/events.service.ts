@@ -56,6 +56,10 @@ export class EventsService {
       brandSecondary?: string;
     },
   ) {
+    /* Generate unique shortHash immediately so QR is available on creation */
+    const shortHash = await this.deduplicateShortHash();
+    const baseUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
+
     const event = await this.prisma.event.create({
       data: {
         organiserId,
@@ -68,11 +72,18 @@ export class EventsService {
         expectedCount: dto.expectedCount ?? null,
         brandPrimary: dto.brandPrimary ?? '#4F46E5',
         brandSecondary: dto.brandSecondary ?? '#818CF8',
-        // slug and shortHash are required but will be set on publish
         slug: `draft-${crypto.randomUUID()}`,
-        shortHash: crypto.randomUUID().slice(0, 8),
+        shortHash,
         status: EventStatus.DRAFT,
+        qrUrl: '',  // placeholder, set below with real eventId
       },
+    });
+
+    /* Update qrUrl with the real eventId */
+    const qrUrl = `${baseUrl}/auth/attendee/register?eventId=${event.id}&eventName=${encodeURIComponent(dto.name)}`;
+    await this.prisma.event.update({
+      where: { id: event.id },
+      data: { qrUrl },
     });
 
     this.logger.log(`Event created (draft): ${event.id} by organiser ${organiserId}`);
@@ -88,6 +99,8 @@ export class EventsService {
       expectedCount: event.expectedCount,
       brandPrimary: event.brandPrimary,
       brandSecondary: event.brandSecondary,
+      shortHash: event.shortHash,
+      qrUrl,
       status: event.status,
       createdAt: event.createdAt,
       updatedAt: event.updatedAt,
@@ -207,8 +220,8 @@ export class EventsService {
       throw new ForbiddenException('You do not own this event');
     }
 
-    if (event.status !== EventStatus.DRAFT) {
-      throw new BadRequestException('Only draft events can be updated');
+    if (event.status === EventStatus.DELETED) {
+      throw new BadRequestException('Deleted events cannot be updated');
     }
 
     const updateData: Record<string, unknown> = {};
@@ -271,10 +284,12 @@ export class EventsService {
     const baseSlug = this.slugify(event.name);
     const slug = await this.deduplicateSlug(baseSlug);
 
-    // Generate 8-char random hex shortHash, deduplicate if necessary
-    const shortHash = await this.deduplicateShortHash();
+    // Preserve existing shortHash (set at creation); only generate if missing
+    const shortHash = event.shortHash.startsWith('draft-')
+      ? await this.deduplicateShortHash()
+      : event.shortHash;
 
-    // Construct QR URL — direct attendee registration link
+    // Ensure qrUrl is set with correct frontend URL
     const baseUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
     const qrUrl = `${baseUrl}/auth/attendee/register?eventId=${eventId}&eventName=${encodeURIComponent(event.name)}`;
 

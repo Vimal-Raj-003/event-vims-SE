@@ -19,6 +19,8 @@ import { ComplianceModule } from './compliance/compliance.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { StorageModule } from './storage/storage.module';
 import { QrModule } from './qr/qr.module';
+import { SupportTicketsModule } from './support-tickets/support-tickets.module';
+import { OrganiserModule } from './organiser/organiser.module';
 import { HealthController } from './health/health.controller';
 
 @Module({
@@ -83,6 +85,8 @@ import { HealthController } from './health/health.controller';
     NotificationsModule,
     StorageModule,
     QrModule,
+    SupportTicketsModule,
+    OrganiserModule,
   ],
   controllers: [HealthController],
 })

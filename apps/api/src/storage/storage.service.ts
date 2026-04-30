@@ -5,7 +5,7 @@ import * as crypto from 'crypto';
 const ALLOWED_CONTENT_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 
-type UploadContext = 'event-logo' | 'event-banner' | 'event-qr' | 'attendee-photo' | 'attendee-company-logo';
+type UploadContext = 'event-logo' | 'event-banner' | 'event-qr' | 'attendee-photo' | 'attendee-company-logo' | 'organiser-photo';
 
 const CONTEXT_SIZE_LIMITS: Record<UploadContext, number> = {
   'event-logo': 2 * 1024 * 1024,
@@ -13,6 +13,7 @@ const CONTEXT_SIZE_LIMITS: Record<UploadContext, number> = {
   'event-qr': MAX_FILE_SIZE_BYTES,
   'attendee-photo': 2 * 1024 * 1024,
   'attendee-company-logo': 2 * 1024 * 1024,
+  'organiser-photo': 2 * 1024 * 1024,
 };
 
 @Injectable()
@@ -67,6 +68,7 @@ export class StorageService {
       'event-qr': `events/${entityId}/qr`,
       'attendee-photo': `attendees/${entityId}/photo`,
       'attendee-company-logo': `attendees/${entityId}/company-logo`,
+      'organiser-photo': `organisers/${entityId}/photo`,
     };
     return `${contextPathMap[context]}/${timestamp}-${randomSuffix}.${ext}`;
   }

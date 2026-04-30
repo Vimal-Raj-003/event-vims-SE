@@ -12,6 +12,16 @@ import { ConfigService } from '@nestjs/config';
 import { EventStatus } from '@prisma/client';
 import * as QRCode from 'qrcode';
 
+/* ─── QR generation helper ──────────────────────────────────────── */
+async function buildQrBuffer(url: string, size: number): Promise<Buffer> {
+  return QRCode.toBuffer(url, {
+    width: size,
+    margin: 3,
+    errorCorrectionLevel: 'H',
+    color: { dark: '#1e1b4b', light: '#ffffff' },
+  });
+}
+
 @Controller('qr')
 export class QrController {
   constructor(
@@ -19,38 +29,22 @@ export class QrController {
     private readonly configService: ConfigService,
   ) {}
 
-  // ──────────────────────────────────────────────
-  // Resolve QR short hash → event data + join URL
-  // ──────────────────────────────────────────────
-
+  /* ── resolve shortHash → event data + join URL ─────────────────── */
   @Get(':shortHash')
   @SetMetadata('isPublic', true)
   async resolveQr(@Param('shortHash') shortHash: string) {
     const event = await this.prisma.event.findUnique({
       where: { shortHash },
       select: {
-        id: true,
-        name: true,
-        slug: true,
-        shortHash: true,
-        description: true,
-        venue: true,
-        startAt: true,
-        endAt: true,
-        status: true,
-        brandLogoUrl: true,
-        brandPrimary: true,
-        brandSecondary: true,
-        bannerUrl: true,
+        id: true, name: true, slug: true, shortHash: true,
+        description: true, venue: true, startAt: true, endAt: true,
+        status: true, brandLogoUrl: true, brandPrimary: true,
+        brandSecondary: true, bannerUrl: true,
       },
     });
 
-    if (!event) {
+    if (!event || event.status === EventStatus.DELETED) {
       throw new NotFoundException('QR code is invalid or has expired');
-    }
-
-    if (event.status !== EventStatus.PUBLISHED) {
-      throw new NotFoundException('This event is not currently accepting registrations');
     }
 
     const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:3000');
@@ -58,52 +52,62 @@ export class QrController {
 
     return {
       event: {
-        id: event.id,
-        name: event.name,
-        slug: event.slug,
-        description: event.description,
-        venue: event.venue,
-        startAt: event.startAt,
-        endAt: event.endAt,
-        brandLogoUrl: event.brandLogoUrl,
-        brandPrimary: event.brandPrimary,
-        brandSecondary: event.brandSecondary,
-        bannerUrl: event.bannerUrl,
+        id: event.id, name: event.name, slug: event.slug,
+        description: event.description, venue: event.venue,
+        startAt: event.startAt, endAt: event.endAt,
+        status: event.status,
+        brandPrimary: event.brandPrimary, brandSecondary: event.brandSecondary,
       },
       registrationUrl,
     };
   }
 
-  // ──────────────────────────────────────────────
-  // Serve QR code as PNG image
-  // ──────────────────────────────────────────────
-
+  /* ── serve QR as inline PNG image (any non-deleted event) ─────── */
   @Get(':shortHash/image')
   @SetMetadata('isPublic', true)
-  async getQrImage(
-    @Param('shortHash') shortHash: string,
-    @Res() res: Response,
-  ) {
+  async getQrImage(@Param('shortHash') shortHash: string, @Res() res: Response) {
     const event = await this.prisma.event.findUnique({
       where: { shortHash },
-      select: { id: true, name: true, status: true, qrUrl: true },
+      select: { id: true, name: true, status: true },
     });
 
-    if (!event || event.status !== EventStatus.PUBLISHED) {
-      throw new NotFoundException('Event not found or not published');
+    if (!event || event.status === EventStatus.DELETED) {
+      throw new NotFoundException('Event not found');
     }
 
     const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:3000');
     const joinUrl = `${frontendUrl}/auth/attendee/register?eventId=${event.id}&eventName=${encodeURIComponent(event.name)}`;
 
-    const buffer = await QRCode.toBuffer(joinUrl, {
-      width: 400,
-      margin: 2,
-      color: { dark: '#1e1b4b', light: '#ffffff' },
-    });
+    const buffer = await buildQrBuffer(joinUrl, 400);
 
     res.setHeader('Content-Type', 'image/png');
-    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.send(buffer);
+  }
+
+  /* ── download high-quality QR PNG (600px, for printing) ─────────── */
+  @Get(':shortHash/download')
+  @SetMetadata('isPublic', true)
+  async downloadQr(@Param('shortHash') shortHash: string, @Res() res: Response) {
+    const event = await this.prisma.event.findUnique({
+      where: { shortHash },
+      select: { id: true, name: true, status: true },
+    });
+
+    if (!event || event.status === EventStatus.DELETED) {
+      throw new NotFoundException('Event not found');
+    }
+
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:3000');
+    const joinUrl = `${frontendUrl}/auth/attendee/register?eventId=${event.id}&eventName=${encodeURIComponent(event.name)}`;
+
+    /* 800px with highest error correction — print-ready */
+    const buffer = await buildQrBuffer(joinUrl, 800);
+    const safeName = event.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Content-Disposition', `attachment; filename="qr_${safeName}.png"`);
+    res.setHeader('Content-Length', buffer.length);
     res.send(buffer);
   }
 }

@@ -127,10 +127,12 @@ export default function SuperAdminLoginPage() {
         </button>
       </form>
 
-      <div className="mt-4 rounded-2xl bg-muted/50 border border-border px-4 py-3">
-        <p className="text-xs text-muted-foreground font-medium">Test credentials</p>
-        <p className="text-xs text-foreground mt-0.5">admin@vims-enterprise.com · Admin@2026</p>
-      </div>
+      {process.env.NODE_ENV === "development" && (
+        <div className="mt-4 rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3">
+          <p className="text-xs font-semibold text-amber-700">Dev mode — test credentials</p>
+          <p className="text-xs text-amber-900 mt-0.5 font-mono">admin@vims-enterprise.com · Admin@2026</p>
+        </div>
+      )}
     </div>
   );
 }

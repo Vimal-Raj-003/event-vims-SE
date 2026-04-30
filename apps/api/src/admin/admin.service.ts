@@ -5,7 +5,8 @@ import {
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { DeletionRequestStatus } from '@prisma/client';
+import { DeletionRequestStatus, TicketStatus, TicketPriority } from '@prisma/client';
+import * as ExcelJS from 'exceljs';
 
 export interface PaginationParams {
   page: number;
@@ -753,5 +754,256 @@ export class AdminService {
         totalPages: Math.ceil(totalItems / pageSize),
       },
     };
+  }
+
+  // ──────────────────────────────────────────────
+  // Export: Organisers
+  // ──────────────────────────────────────────────
+
+  async exportOrganisers(): Promise<Buffer> {
+    const rows = await this.prisma.organiser.findMany({
+      select: {
+        id: true, name: true, organisation: true,
+        email: true, mobile: true, status: true,
+        createdAt: true,
+        _count: { select: { events: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'VIMS Events Admin';
+    const ws = wb.addWorksheet('Organisers');
+
+    ws.columns = [
+      { header: 'ID',           key: 'id',           width: 30 },
+      { header: 'Name',         key: 'name',         width: 25 },
+      { header: 'Organisation', key: 'organisation', width: 30 },
+      { header: 'Email',        key: 'email',        width: 35 },
+      { header: 'Mobile',       key: 'mobile',       width: 18 },
+      { header: 'Status',       key: 'status',       width: 12 },
+      { header: 'Events Count', key: 'events',       width: 14 },
+      { header: 'Joined At',    key: 'createdAt',    width: 22 },
+    ];
+
+    this.styleHeader(ws);
+    rows.forEach((r) => ws.addRow({
+      id: r.id, name: r.name, organisation: r.organisation,
+      email: r.email, mobile: r.mobile ?? '', status: r.status,
+      events: r._count.events,
+      createdAt: new Date(r.createdAt).toLocaleString('en-IN'),
+    }));
+    this.autoStyle(ws);
+
+    return wb.xlsx.writeBuffer() as unknown as Promise<Buffer>;
+  }
+
+  // ──────────────────────────────────────────────
+  // Export: Events
+  // ──────────────────────────────────────────────
+
+  async exportEvents(): Promise<Buffer> {
+    const rows = await this.prisma.event.findMany({
+      where: { status: { not: 'DELETED' as any } },
+      include: {
+        organiser: { select: { name: true, organisation: true, email: true } },
+        _count: { select: { attendees: true, connections: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'VIMS Events Admin';
+    const ws = wb.addWorksheet('Events');
+
+    ws.columns = [
+      { header: 'Event ID',        key: 'id',           width: 30 },
+      { header: 'Event Name',      key: 'name',         width: 35 },
+      { header: 'Status',          key: 'status',       width: 12 },
+      { header: 'Organiser',       key: 'organiser',    width: 25 },
+      { header: 'Organisation',    key: 'organisation', width: 30 },
+      { header: 'Organiser Email', key: 'orgEmail',     width: 30 },
+      { header: 'Venue',           key: 'venue',        width: 30 },
+      { header: 'Start Date',      key: 'startAt',      width: 22 },
+      { header: 'End Date',        key: 'endAt',        width: 22 },
+      { header: 'Expected',        key: 'expected',     width: 12 },
+      { header: 'Attendees',       key: 'attendees',    width: 12 },
+      { header: 'Connections',     key: 'connections',  width: 14 },
+      { header: 'Short Hash',      key: 'shortHash',    width: 14 },
+      { header: 'QR / Join URL',   key: 'qrUrl',        width: 60 },
+      { header: 'Created At',      key: 'createdAt',    width: 22 },
+    ];
+
+    this.styleHeader(ws);
+    rows.forEach((r) => ws.addRow({
+      id: r.id, name: r.name, status: r.status,
+      organiser: r.organiser.name, organisation: r.organiser.organisation,
+      orgEmail: r.organiser.email,
+      venue: r.venue,
+      startAt: new Date(r.startAt).toLocaleString('en-IN'),
+      endAt: new Date(r.endAt).toLocaleString('en-IN'),
+      expected: r.expectedCount ?? 'N/A',
+      attendees: r._count.attendees,
+      connections: r._count.connections,
+      shortHash: r.shortHash,
+      qrUrl: r.qrUrl ?? '',
+      createdAt: new Date(r.createdAt).toLocaleString('en-IN'),
+    }));
+    this.autoStyle(ws);
+
+    return wb.xlsx.writeBuffer() as unknown as Promise<Buffer>;
+  }
+
+  // ──────────────────────────────────────────────
+  // Export: Attendees
+  // ──────────────────────────────────────────────
+
+  async exportAttendees(eventId?: string): Promise<Buffer> {
+    const rows = await this.prisma.attendee.findMany({
+      where: eventId ? { eventId } : {},
+      include: { event: { select: { name: true } } },
+      orderBy: { registeredAt: 'desc' },
+    });
+
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'VIMS Events Admin';
+    const ws = wb.addWorksheet('Attendees');
+
+    ws.columns = [
+      { header: 'ID',            key: 'id',           width: 30 },
+      { header: 'First Name',    key: 'firstName',    width: 18 },
+      { header: 'Last Name',     key: 'lastName',     width: 18 },
+      { header: 'Email',         key: 'email',        width: 35 },
+      { header: 'Phone',         key: 'phone',        width: 18 },
+      { header: 'Designation',   key: 'designation',  width: 25 },
+      { header: 'Company',       key: 'company',      width: 28 },
+      { header: 'Business Type', key: 'businessType', width: 20 },
+      { header: 'Industry',      key: 'industry',     width: 20 },
+      { header: 'City',          key: 'city',         width: 15 },
+      { header: 'Company Size',  key: 'companySize',  width: 15 },
+      { header: 'Consent Given', key: 'consent',      width: 14 },
+      { header: 'Event',         key: 'event',        width: 30 },
+      { header: 'Registered At', key: 'createdAt',    width: 22 },
+    ];
+
+    this.styleHeader(ws);
+    rows.forEach((r) => ws.addRow({
+      id: r.id, firstName: r.firstName, lastName: r.lastName,
+      email: r.email, phone: r.phone ?? '', designation: r.designation,
+      company: r.company, businessType: r.businessType, industry: r.industry,
+      city: r.city, companySize: r.companySize ?? '', consent: r.consentGiven ? 'Yes' : 'No',
+      event: r.event.name,
+      createdAt: new Date(r.registeredAt).toLocaleString('en-IN'),
+    }));
+    this.autoStyle(ws);
+
+    return wb.xlsx.writeBuffer() as unknown as Promise<Buffer>;
+  }
+
+  // ──────────────────────────────────────────────
+  // Support Tickets (Admin)
+  // ──────────────────────────────────────────────
+
+  async listSupportTickets(
+    params: PaginationParams & { status?: string; category?: string; search?: string },
+  ): Promise<PaginatedResult<Record<string, unknown>>> {
+    const { page, pageSize, status, category, search } = params;
+    const skip = (page - 1) * pageSize;
+
+    const where: Record<string, unknown> = {};
+    if (status) where.status = status;
+    if (category) where.category = category;
+    if (search) {
+      where.OR = [
+        { subject: { contains: search, mode: 'insensitive' } },
+        { organiser: { name: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
+
+    const [tickets, totalItems] = await Promise.all([
+      this.prisma.supportTicket.findMany({
+        where,
+        include: {
+          organiser: { select: { id: true, name: true, email: true, organisation: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: pageSize,
+      }),
+      this.prisma.supportTicket.count({ where }),
+    ]);
+
+    return {
+      data: tickets,
+      meta: { page, pageSize, totalItems, totalPages: Math.ceil(totalItems / pageSize) },
+    };
+  }
+
+  async getSupportTicket(id: string) {
+    const ticket = await this.prisma.supportTicket.findUnique({
+      where: { id },
+      include: {
+        organiser: { select: { id: true, name: true, email: true, organisation: true } },
+      },
+    });
+    if (!ticket) throw new NotFoundException('Ticket not found');
+    return ticket;
+  }
+
+  async updateSupportTicket(
+    id: string,
+    dto: { status?: TicketStatus; priority?: TicketPriority; adminNote?: string },
+  ) {
+    const ticket = await this.prisma.supportTicket.findUnique({ where: { id } });
+    if (!ticket) throw new NotFoundException('Ticket not found');
+
+    const data: Record<string, unknown> = {};
+    if (dto.status !== undefined) {
+      data.status = dto.status;
+      if (dto.status === 'RESOLVED' || dto.status === 'CLOSED') {
+        data.resolvedAt = new Date();
+      }
+    }
+    if (dto.priority !== undefined) data.priority = dto.priority;
+    if (dto.adminNote !== undefined) data.adminNote = dto.adminNote;
+
+    const updated = await this.prisma.supportTicket.update({
+      where: { id },
+      data,
+      include: {
+        organiser: { select: { id: true, name: true, email: true, organisation: true } },
+      },
+    });
+    this.logger.log(`Support ticket ${id} updated by admin`);
+    return updated;
+  }
+
+  // ──────────────────────────────────────────────
+  // Private Excel helpers
+  // ──────────────────────────────────────────────
+
+  private styleHeader(ws: ExcelJS.Worksheet): void {
+    const headerRow = ws.getRow(1);
+    headerRow.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+    headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } };
+    headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+    headerRow.height = 24;
+  }
+
+  private autoStyle(ws: ExcelJS.Worksheet): void {
+    ws.eachRow({ includeEmpty: false }, (row, rowNum) => {
+      row.eachCell((cell) => {
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          right: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        };
+        if (rowNum > 1) {
+          row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowNum % 2 === 0 ? 'FFF8FAFC' : 'FFFFFFFF' } };
+        }
+      });
+    });
+    ws.views = [{ state: 'frozen', ySplit: 1 }];
   }
 }
