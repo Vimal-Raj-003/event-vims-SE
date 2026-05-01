@@ -74,6 +74,14 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
 
   const unread = notifs.filter((n) => !n.isRead).length;
 
+  // Auth guard — redirect to login if not authenticated
+  useEffect(() => {
+    const tokens = localStorage.getItem("vims:auth");
+    if (!tokens && !user) {
+      router.replace("/auth/super-admin/login");
+    }
+  }, [user, router]);
+
   useEffect(() => {
     const stored = localStorage.getItem("admin-sidebar");
     if (stored === "collapsed") setCollapsed(true);

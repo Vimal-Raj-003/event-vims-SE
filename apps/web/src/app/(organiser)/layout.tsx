@@ -87,6 +87,14 @@ export default function OrganiserLayout({ children }: { children: React.ReactNod
 
   const unread = notifs.filter((n) => !n.isRead).length;
 
+  // Auth guard — redirect to login if not authenticated
+  useEffect(() => {
+    const tokens = localStorage.getItem("vims:auth");
+    if (!tokens && !user) {
+      router.replace("/auth/organizer/login");
+    }
+  }, [user, router]);
+
   // Load persisted collapsed state
   useEffect(() => {
     const stored = localStorage.getItem("org-sidebar");

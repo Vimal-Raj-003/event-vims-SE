@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 const TABS = [
   {
@@ -44,6 +45,14 @@ const TABS = [
 
 export default function AttendeeLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  useEffect(() => {
+    const tokens = localStorage.getItem("vims:auth");
+    if (!tokens) {
+      router.replace("/auth/attendee/login");
+    }
+  }, [router]);
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50">
