@@ -11,7 +11,21 @@
 - UI redesign deferred to WS 2/3: 0
 
 ## Phase 0 — Smoke gate
-_(populated during Task 2)_
+
+| Role | Login | First page | Console clean | DB write | Status |
+|---|---|---|---|---|---|
+| super-admin | POST /auth/super-admin/login → 200 | `/admin/overview` (stats: 2 orgs, 11 events, 27 attendees, 25 connections) | 0 errors | refresh_token id `cmoo6xuvx0000n6mk2pmip9m1`, userRole=`super-admin`, revokedAt=null, expires 2026-05-09 | PASS |
+| organiser | POST /auth/organiser/login → 200 | `/dashboard` (org "VIMS Events", user Priya Sharma, 9 events / 17 attendees) | 0 errors | refresh_token id `cmoo6zth90001n6mkhi49ui4b`, userRole=`organiser`, revokedAt=null, expires 2026-05-09 | PASS |
+| attendee | POST /auth/attendee/request-otp → 200 (devOtp=183050 returned in redirect URL); POST /auth/attendee/verify-otp → 200 | `/wizard` (auto-redirect from `/home` because profileCompleted=false on first login) | 0 errors | OtpVerification id `cmoo71f9x0002n6mkolug5mab` usedAt=2026-05-02T10:23:51.975Z; refresh_token id `cmoo725rf0003n6mkt6rsfgzt`, userRole=`attendee`, revokedAt=null | PASS |
+
+**Phase 0 gate decision: PROCEED** — all three login flows succeeded with clean console, DB writes confirmed, and 200 responses on every login endpoint.
+
+### Notable findings
+- **Stale `.next` cache caused HTTP 500 on `/auth/super-admin/login` and `/auth/attendee/login`** before tests started. Symptom: "missing required error components, refreshing..." with the page client-reference-manifest.js missing under `.next/server/app/(public)/auth/{super-admin,attendee}/login/`. The organiser route had its manifest, both others did not. Fixed by killing the dev server, removing `apps/web/.next/`, and restarting `npm run dev`. After clean rebuild all three routes returned 200. No source code change required. (This is a known Next.js 14 dev-server quirk after intensive route-group edits; not a product bug.)
+- **Plan-vs-reality drift on enums:** the `RefreshToken.userRole` column stores lowercase values (`super-admin`, `organiser`, `attendee`), not uppercase (`SUPER_ADMIN`). The `OtpVerification.purpose` column stores `attendee_otp_<eventId>` (per-event scope), not `ATTENDEE_LOGIN`. Updated DB queries accordingly.
+- **Dev-mode OTP exposure:** `/auth/attendee/request-otp` returns the OTP via redirect URL query param (`?devOtp=183050`) and pre-fills it on the verify page. Convenient for testing; should be guarded by `NODE_ENV` (verify before any production deploy).
+- **Attendee post-login routing:** `/home` correctly redirects to `/wizard` when `profileCompleted=false`. Worth flagging for Phase 1 attendee deep-sweep — the spec said expected first page was `/home`, but a brand-new attendee will always see `/wizard` first.
+- **Carry-over check (Task 1 console error on `/`):** the auth pages themselves are console-clean (0 errors after the .next rebuild). The earlier landing-page console error did not propagate to auth screens.
 
 ## Phase 1 — Detailed sweep
 
