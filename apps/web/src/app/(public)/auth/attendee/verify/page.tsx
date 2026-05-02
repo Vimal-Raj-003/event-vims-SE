@@ -9,6 +9,7 @@ export default function AttendeeVerifyPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const login = useAuthStore((s) => s.login);
+  const setActiveEvent = useAuthStore((s) => s.setActiveEvent);
 
   const email = searchParams.get("email") ?? "";
   const eventId = searchParams.get("eventId") ?? "";
@@ -62,14 +63,20 @@ export default function AttendeeVerifyPage() {
 
       setStoredTokens({ accessToken: data.accessToken, refreshToken: data.refreshToken });
       login(
-        { id: data.user.id, email: data.user.email, name: email.split("@")[0] ?? email, role: "attendee" },
+        { id: data.user.id, email: data.user.email, name: email.split("@")[0] ?? email, role: "attendee", eventId: data.user.eventId },
         data.accessToken,
         data.refreshToken,
       );
-      router.push("/directory");
+      setActiveEvent(eventId);
+      router.push("/home");
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setError(msg ?? "Invalid or expired code. Please try again.");
+      const axiosErr = err as { code?: string; response?: { data?: { message?: string } } };
+      if (axiosErr.code === "ERR_NETWORK" || axiosErr.code === "ECONNREFUSED") {
+        setError("Cannot connect to the server. Please ensure the API is running.");
+      } else {
+        const msg = axiosErr.response?.data?.message;
+        setError(msg ?? "Invalid or expired code. Please try again.");
+      }
     } finally {
       setLoading(false);
     }

@@ -32,8 +32,13 @@ export default function AttendeeLoginPage() {
         `/auth/attendee/verify?email=${encodeURIComponent(form.email)}&eventId=${encodeURIComponent(form.eventId)}${otp ? `&devOtp=${otp}` : ""}`
       );
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setError(msg ?? "Could not send OTP. Check your Event ID and try again.");
+      const axiosErr = err as { code?: string; response?: { data?: { message?: string } } };
+      if (axiosErr.code === "ERR_NETWORK" || axiosErr.code === "ECONNREFUSED") {
+        setError("Cannot connect to the server. Please ensure the API is running.");
+      } else {
+        const msg = axiosErr.response?.data?.message;
+        setError(msg ?? "Could not send OTP. Check your Event ID and try again.");
+      }
     } finally {
       setLoading(false);
     }

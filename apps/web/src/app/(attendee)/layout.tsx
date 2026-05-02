@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuthStore } from "@/lib/stores/auth-store";
+import { useAttendeeProfile } from "@/lib/hooks/use-attendee";
 
 const TABS = [
   {
@@ -25,7 +26,7 @@ const TABS = [
     ),
   },
   {
-    href: "/dashboard",
+    href: "/home",
     label: "Home",
     icon: (active: boolean) => (
       <svg className="h-5 w-5" fill={active ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={active ? 0 : 1.5}>
@@ -56,11 +57,14 @@ const TABS = [
 export default function AttendeeLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { isAuthenticated, profileCompleted } = useAuthStore();
+  const { isAuthenticated, profileCompleted, activeEventId } = useAuthStore();
+  const { data: profile } = useAttendeeProfile();
+  const eventName = (profile as { event?: { name: string } } | null)?.event?.name ?? "VIMS Event";
 
   useEffect(() => {
-    const tokens = localStorage.getItem("vims:auth");
-    if (!tokens) {
+    const auth = localStorage.getItem("vims:auth");
+    const tokens = localStorage.getItem("vims:tokens");
+    if (!auth && !tokens) {
       router.replace("/auth/attendee/login");
     }
   }, [router]);
@@ -80,7 +84,7 @@ export default function AttendeeLayout({ children }: { children: React.ReactNode
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary shadow-sm shadow-primary/30">
               <span className="text-[10px] font-black text-white">V</span>
             </div>
-            <span className="text-sm font-bold text-foreground">TechConnect Summit</span>
+            <span className="text-sm font-bold text-foreground">{eventName}</span>
             <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse ml-0.5" />
           </div>
           <Link

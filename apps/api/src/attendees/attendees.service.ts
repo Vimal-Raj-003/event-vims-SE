@@ -198,6 +198,7 @@ export class AttendeesService {
   async getProfile(attendeeId: string) {
     const attendee = await this.prisma.attendee.findUnique({
       where: { id: attendeeId },
+      include: { event: { select: { id: true, name: true } } },
     });
 
     if (!attendee) {
@@ -211,8 +212,11 @@ export class AttendeesService {
       lastName: attendee.lastName,
       email: attendee.email,
       phone: attendee.phone,
+      age: attendee.age,
+      sex: attendee.sex,
       designation: attendee.designation,
       company: attendee.company,
+      occupation: attendee.occupation,
       businessType: attendee.businessType,
       industry: attendee.industry,
       services: attendee.services,
@@ -220,11 +224,17 @@ export class AttendeesService {
       address: attendee.address,
       companySize: attendee.companySize,
       tags: attendee.tags,
+      networkingGoals: attendee.networkingGoals,
+      interestedIn: attendee.interestedIn,
+      linkedinUrl: attendee.linkedinUrl,
+      websiteUrl: attendee.websiteUrl,
+      twitterHandle: attendee.twitterHandle,
       profilePhotoUrl: attendee.profilePhotoUrl,
       companyLogoUrl: attendee.companyLogoUrl,
       registeredAt: attendee.registeredAt,
       lastActiveAt: attendee.lastActiveAt,
       isPaused: attendee.isPaused,
+      event: attendee.event,
     };
   }
 
@@ -575,9 +585,9 @@ export class AttendeesService {
 
     return {
       success: true,
-      profileCompleted: step === 4 ? true : attendee.profileCompleted,
-      currentStep: step,
       ...status,
+      profileCompleted: step === 4 ? true : status.profileCompleted,
+      currentStep: step,
     };
   }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { SEX_OPTIONS } from "@vims-event/shared/constants";
+import { SEX_OPTIONS } from "@vims-events/shared";
 
 interface StepPersonalProps {
   defaultValues?: Record<string, unknown>;
@@ -19,17 +19,32 @@ export function StepPersonal({ defaultValues, onNext, isLoading }: StepPersonalP
   });
   const [photoUrl, setPhotoUrl] = useState((defaultValues?.profilePhotoUrl as string) ?? "");
 
+  const [uploadError, setUploadError] = useState("");
+
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError("Photo must be under 5 MB");
+      return;
+    }
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("context", "attendee-photo");
+    setUploadError("");
     try {
-      const res = await fetch("/api/upload", { method: "POST", body: formData });
+      const token = typeof window !== "undefined" ? JSON.parse(localStorage.getItem("vims:tokens") ?? "{}")?.accessToken : null;
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
+      const res = await fetch(`${baseUrl}/storage/upload`, {
+        method: "POST",
+        body: formData,
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       const data = await res.json();
-      if (data.url) setPhotoUrl(data.url);
+      if (!res.ok) throw new Error(data.message ?? "Upload failed");
+      setPhotoUrl(data.url ?? data.data?.url ?? "");
     } catch {
-      // Upload failed silently
+      setUploadError("Photo upload failed. You can continue and add it later.");
     }
   };
 
@@ -68,6 +83,7 @@ export function StepPersonal({ defaultValues, onNext, isLoading }: StepPersonalP
         <div>
           <p className="text-sm font-medium text-foreground">Profile Photo</p>
           <p className="text-xs text-muted-foreground">Click to upload</p>
+          {uploadError && <p className="text-xs text-destructive mt-1">{uploadError}</p>}
         </div>
       </div>
 
