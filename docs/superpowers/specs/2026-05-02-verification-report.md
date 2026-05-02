@@ -4,9 +4,9 @@
 > Spec: docs/superpowers/specs/2026-05-02-verification-design.md
 
 ## Executive summary
-- Flows passed: 0 / 28
+- Flows passed: 7 / 28 (Phase 1 super-admin: 7/8)
 - Functional bugs fixed: 0
-- Functional bugs deferred: 0
+- Functional bugs deferred: 3
 - UI polish applied: 0 pages
 - UI redesign deferred to WS 2/3: 0
 
@@ -30,7 +30,79 @@
 ## Phase 1 — Detailed sweep
 
 ### Super-admin
-_(populated during Task 3)_
+
+#### S1. Overview dashboard
+- URL: `/admin/overview`
+- Status: PASS (with data-accuracy concern — see bug DA-1)
+- Network: GET /admin/analytics → 200, GET /admin/organisers?pageSize=5 → 200, GET /admin/events?pageSize=6 → 200 (each ~50–150ms)
+- DB check: organiser=2 ✓, event=11 ✓, attendee=27 ✓, connectionRequest total=25 ✓ (matches API), connectionRequest ACCEPTED=15 (does NOT match UI label "accepted connections")
+- Console: clean (0 errors, 1 warning)
+- Polish applied: no polish needed
+- Bugs: DA-1 deferred (see below)
+
+#### S2. Organisers list
+- URL: `/admin/organisers`
+- Status: PASS
+- Network: GET /admin/organisers?page=1&pageSize=20 → 200
+- DB check: organiser.count() = 2 — matches both rows shown (StartupFund Ventures, TechConnect Events Pvt Ltd)
+- Console: clean
+- Polish applied: no polish needed (no search input rendered on this page; not a bug — small fixture)
+- Bugs: none
+
+#### S3. Events list (cross-org)
+- URL: `/admin/events` (filter `status=PUBLISHED` applied; spec said `ACTIVE` but enum offers DRAFT/PUBLISHED/DELETED)
+- Status: PASS
+- Network: GET /admin/events?page=1&pageSize=20 → 200; GET /admin/events?page=1&pageSize=20&status=PUBLISHED → 200
+- DB check: total=11 ✓ (no filter), PUBLISHED=9 ✓, DRAFT=2 ✓
+- Console: clean
+- Polish applied: no polish needed
+- Bugs: none
+
+#### S4. Single event detail
+- URL: `/admin/events/cmoj5g67h0003n628x95wm4a9` (Bengaluru Tech Summit 2026)
+- Status: PASS
+- Network: GET /admin/events/cmoj5g67h0003n628x95wm4a9 → 200
+- DB check: row exists, status=PUBLISHED, name="Bengaluru Tech Summit 2026" matches UI heading
+- Console: clean
+- Polish applied: no polish needed
+- Bugs: none
+
+#### S5. Audit log
+- URL: `/admin/audit-log`
+- Status: PASS (list-render-only) — but exposes deferred bug AU-1
+- Network: GET /admin/audit-log?page=1&pageSize=25 → 200
+- DB check: auditLog.count() = 0 — UI shows "No logs found" (consistent)
+- Console: clean
+- Polish applied: no polish needed
+- Bugs: AU-1 deferred — super-admin login earlier in this session was NOT recorded in auditLog; the table is empty in fixture and login flow does not write a row. (Spec flagged this as expected.)
+
+#### S6. Support tickets
+- URL: `/admin/support-tickets`
+- Status: PASS (list-render-only) — fixture has no tickets
+- Network: GET /admin/support-tickets?page=1&pageSize=20 → 200
+- DB check: supportTicket.count() = 0 — UI shows "0 total tickets / No tickets found"
+- Console: clean
+- Polish applied: no polish needed
+- Bugs: none
+
+#### S7. Deletion requests
+- URL: `/admin/deletion-requests`
+- Status: PASS (list-render-only) — no pending deletion requests in fixture
+- Network: GET /admin/deletion-requests?page=1&pageSize=50 → 200
+- DB check: dataDeletionRequest.count() = 0, pending = 0 — UI shows "No pending deletion requests"
+- Console: clean
+- Polish applied: no polish needed
+- Bugs: none
+
+#### S8. Admin settings
+- URL: `/admin/settings`
+- Status: FAIL — page is non-functional (deferred bug ST-1)
+- Network: clicking "Save Settings" fires ZERO API calls. Toggle clicks have no state binding (visual state does not change).
+- DB check: no settings store exists; nothing to verify
+- Console: clean
+- Polish applied: no polish needed (full rebuild required, not polish)
+- Bugs: ST-1 deferred (see below)
+
 
 ### Organiser
 _(populated during Task 4)_
@@ -39,7 +111,21 @@ _(populated during Task 4)_
 _(populated during Task 5)_
 
 ## Bugs deferred (require >10-line fix or user decision)
-_(none yet)_
+
+### DA-1 — Connections KPI mislabelled on /admin/overview (severity: Low)
+- Symptom: dashboard card reads "25 — accepted connections", but DB has only 15 ACCEPTED rows. The API counts ALL `connectionRequest` rows (incl. PENDING/DECLINED).
+- Source: `apps/api/src/admin/admin.service.ts` line ~50 — `this.prisma.connectionRequest.count()` with no `where`.
+- Proposed fix (≤3 lines): add `{ where: { status: 'ACCEPTED' } }` to the count call, or update the UI label to "total connection requests". Either is ≤10 lines but touches semantics — defer for product decision.
+
+### AU-1 — Super-admin logins not audited (severity: Medium)
+- Symptom: auditLog table is empty even after a successful super-admin login (Phase 0 + Task 3 login). No row written for AUTH/LOGIN action.
+- Source: `apps/api/src/auth/auth.service.ts` super-admin login path does not call into auditLog write.
+- Proposed fix (~15 lines): inject AuditLogService into AuthService and write a row on each successful super-admin login (and ideally on organiser/attendee logins too). Affects 2 files. Defer per >10-line rule.
+
+### ST-1 — /admin/settings is non-functional mock UI (severity: High)
+- Symptom: feature-flag toggles are hardcoded `[label, on]` tuples with no state binding (clicking does not flip visual state); "Save Settings" button has no onClick handler — fires zero network requests. Platform name / support email / retention period are uncontrolled `defaultValue` inputs that never POST.
+- Source: `apps/web/src/app/(super-admin)/admin/settings/page.tsx` — entire file is presentational; no GET/PATCH endpoints exist server-side either.
+- Proposed fix (>50 lines): build out a `platform_settings` table (or single-row config), add GET/PATCH `/admin/settings` endpoints with role guard, and convert the page to a controlled React form using react-hook-form (or similar). Out of scope for ≤10-line inline fix.
 
 ## UI redesign opportunities (workstreams 2 & 3)
 _(none yet)_
