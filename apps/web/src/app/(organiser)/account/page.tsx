@@ -135,7 +135,8 @@ export default function OrganiserSettingsPage() {
     if (!settings) return;
     setSaving(true);
     try {
-      await apiClient.patch("/organiser/settings", settings);
+      const { id: _id, organiserId: _o, createdAt: _c, updatedAt: _u, ...editable } = settings;
+      await apiClient.patch("/organiser/settings", editable);
       showToast("Settings saved successfully");
     } catch {
       showToast("Failed to save settings", "error");
