@@ -4,9 +4,9 @@
 > Spec: docs/superpowers/specs/2026-05-02-verification-design.md
 
 ## Executive summary
-- Flows passed: 7 / 28 (Phase 1 super-admin: 7/8)
-- Functional bugs fixed: 0
-- Functional bugs deferred: 3
+- Flows passed: 16 / 28 (super-admin 7/8, organiser 9/11)
+- Functional bugs fixed: 1 (organiser settings PATCH 400 — apps/web/src/app/(organiser)/account/page.tsx)
+- Functional bugs deferred: 5
 - UI polish applied: 0 pages
 - UI redesign deferred to WS 2/3: 0
 
@@ -105,7 +105,110 @@
 
 
 ### Organiser
-_(populated during Task 4)_
+
+#### Task 6 cleanup queue
+- Event created in O11: `cmoo8nmh2000mn6mkapauydty` (Verification Test Event, status DRAFT, slug `draft-0055368d-273c-4502-a823-be9a930ba679`, shortHash `a883f8a2`)
+- Attendee invited in O6: NOT created — manual invite feature is missing entirely (no UI button, no API endpoint). See bug OG-1 below. Nothing to clean up.
+- Announcement sent in O7: `cmoo86x9z0008n6mkb98cabip` (event `cmoj5g67h0003n628x95wm4a9`, title "Verification Test", recipientCount=8)
+
+#### O1. Dashboard
+- URL: `/dashboard`
+- Status: ✅ PASS
+- Network: GET /events → 200 (×2)
+- DB check: organiserId `cmoj5g3lv0001n628f9723yq3` → 9 events (7 PUBLISHED + 2 DRAFT) ✓ matches "9 Total Events / 7 live · 2 draft"; attendees-across-events count = 17 ✓ matches "Total Attendees 17"
+- Console: clean
+- Polish applied: no polish needed
+- Bugs: none
+
+#### O2. Events list
+- URL: `/events`
+- Status: ✅ PASS
+- Network: GET /events → 200 (×2)
+- DB check: 9 events for organiser ✓; all 9 unique event links rendered, no events from other organisers leaked
+- Console: clean
+- Polish applied: no polish needed
+- Bugs: none
+
+#### O3. Single event detail
+- URL: `/events/cmoj5g67h0003n628x95wm4a9`
+- Status: ✅ PASS
+- Network: GET /events/:id → 200, GET /events/:id/stats, GET /events/:id/attendees?pageSize=5
+- DB check: row exists, name="Bengaluru Tech Summit 2026", status=PUBLISHED; UI shows "Attendees 8" matching DB attendees count for this event = 8
+- Console: clean
+- Polish applied: no polish needed
+- Bugs: none
+
+#### O4. Edit event branding/rules
+- URL: `/events/cmoj5g67h0003n628x95wm4a9/settings`
+- Status: ✅ PASS
+- Network: PATCH /events/cmoj5g67h0003n628x95wm4a9 → 200 (567ms)
+- DB check: brandPrimary changed `#2563EB` → `#ff0000` (updatedAt 2026-05-02T10:52:36.594Z), then reverted to `#2563EB`
+- Console: clean
+- Polish applied: no polish needed
+- Bugs: none
+
+#### O5. Attendees list
+- URL: `/events/cmoj5g67h0003n628x95wm4a9/attendees`
+- Status: ✅ PASS
+- Network: GET /events/:id/attendees → 200
+- DB check: attendees.count for event = 8 ✓ matches UI "8 registered attendees"; search "Acme" filters to 1 (Test User · Acme Co)
+- Console: clean
+- Polish applied: no polish needed
+- Bugs: none
+
+#### O6. Manually invite attendee
+- URL: `/events/cmoj5g67h0003n628x95wm4a9/attendees`
+- Status: ❌ FAIL — feature missing
+- Network: n/a (no UI exists)
+- DB check: n/a — no row was created (no endpoint)
+- Console: clean
+- Polish applied: no polish needed
+- Bugs: OG-1 deferred (organiser-side manual attendee invite missing)
+
+#### O7. Send announcement
+- URL: `/events/cmoj5g67h0003n628x95wm4a9/announcements`
+- Status: ✅ PASS
+- Network: POST /events/cmoj5g67h0003n628x95wm4a9/announcements → 201 Created
+- DB check: announcement id `cmoo86x9z0008n6mkb98cabip`, title="Verification Test", body="Announcement from verification sweep", recipientCount=8, sentAt 2026-05-02T10:55:34
+- Console: clean
+- Polish applied: no polish needed
+- Bugs: none
+
+#### O8. Export attendees
+- URL: `/events/cmoj5g67h0003n628x95wm4a9/export`
+- Status: ✅ PASS
+- Network: GET /events/cmoj5g67h0003n628x95wm4a9/export → 200; downloaded `event-cmoj5g67h0003n628x95wm4a9-export.xlsx` (11167 bytes)
+- DB check: n/a (read-only)
+- Console: clean
+- Polish applied: no polish needed
+- Bugs: none
+
+#### O9. Account / settings
+- URL: `/account` (Notification Prefs tab)
+- Status: ✅ PASS (after fix)
+- Network: First attempt PATCH /organiser/settings → 400 ("property id should not exist", organiserId, createdAt, updatedAt). After fix, PATCH /organiser/settings → 200.
+- DB check: notifyAttendeeRegister `true` → `false` confirmed (updatedAt 2026-05-02T11:06:38), then reverted to `true`
+- Console: 1 error on first attempt (400), clean after fix
+- Polish applied: no polish needed
+- Bugs: OG-2 fixed inline (≤10 lines): saveSettings now strips id/organiserId/createdAt/updatedAt before PATCH
+
+#### O10. Notifications
+- URL: `/notifications`
+- Status: ❌ FAIL — page is fully mocked
+- Network: ZERO API calls. Page renders hardcoded notifications list ("James Whitfield registered for TechConnect Summit 2025" — refers to an event that doesn't exist in this organiser's data). "Mark all as read" click fires no network request.
+- DB check: n/a — page does not read from `notification` table
+- Console: clean
+- Polish applied: no polish needed
+- Bugs: OG-3 deferred (notifications page is mock UI)
+
+#### O11. Create new event (full wizard)
+- URL: `/events/new` → redirected to `/events/cmoo8nmh2000mn6mkapauydty`
+- Status: ✅ PASS
+- Network: POST /events → 201 Created
+- DB check: event id `cmoo8nmh2000mn6mkapauydty`, name="Verification Test Event", organiserId matches, slug `draft-0055368d-273c-4502-a823-be9a930ba679`, shortHash `a883f8a2`, status=DRAFT, startAt=2026-05-03T04:30:00Z
+- Console: clean
+- Polish applied: no polish needed (form is single-page, not multi-step "wizard"; flagged as UI redesign opportunity)
+- Bugs: none
 
 ### Attendee
 _(populated during Task 5)_
@@ -127,11 +230,31 @@ _(populated during Task 5)_
 - Source: `apps/web/src/app/(super-admin)/admin/settings/page.tsx` — entire file is presentational; no GET/PATCH endpoints exist server-side either.
 - Proposed fix (>50 lines): build out a `platform_settings` table (or single-row config), add GET/PATCH `/admin/settings` endpoints with role guard, and convert the page to a controlled React form using react-hook-form (or similar). Out of scope for ≤10-line inline fix.
 
+### OG-1 — Organiser cannot manually invite/add attendee (severity: Medium)
+- Symptom: `/events/:id/attendees` has no Invite / Add button. No matching backend endpoint either; `apps/api/src/attendees/attendees.controller.ts` exposes only public `POST /events/:eventSlug/register` (attendee-self-register), no organiser-side create.
+- Source: `apps/web/src/app/(organiser)/events/[eventId]/attendees/page.tsx` — list-only; `apps/api/src/attendees/attendees.controller.ts`.
+- Proposed fix (~80 lines): add `POST /organiser/events/:id/attendees` endpoint (organiser-guarded), add CreateAttendeeDto with required fields (email, firstName, lastName, plus event field-config requirements), wire an "Invite Attendee" modal to the attendees page, send onboarding email. Out of scope for ≤10-line fix.
+
+### OG-2 — /organiser/settings PATCH 400 (severity: High → FIXED)
+- Symptom: clicking "Save Preferences" on /account → Notification Prefs sent the entire settings object (incl. `id`, `organiserId`, `createdAt`, `updatedAt`) and the API DTO `whitelist` rejected it with 400 "property id should not exist".
+- Source: `apps/web/src/app/(organiser)/account/page.tsx` line 138 — `apiClient.patch("/organiser/settings", settings)`.
+- Fix applied (4 lines): destructure `editable` (omit id/organiserId/createdAt/updatedAt) and PATCH only that. Re-tested → 200 OK, DB update confirmed, value reverted. Commit: see "Bugs fixed" below.
+
+### OG-3 — /notifications is mock UI (severity: Medium)
+- Symptom: page hardcodes 3 fake notifications referring to "TechConnect Summit 2025" (an event not in this organiser's data); zero API calls on load or on "Mark all as read" click; the `notification` Prisma model exists and has no read endpoint surfaced to the organiser app.
+- Source: `apps/web/src/app/(organiser)/notifications/page.tsx` — no fetch / apiClient / api/v1 references.
+- Proposed fix (~50 lines): add GET /organiser/notifications and PATCH /organiser/notifications/:id/read endpoints, wire the page to apiClient with proper loading/empty states. Out of scope for ≤10-line fix.
+
 ## UI redesign opportunities (workstreams 2 & 3)
-_(none yet)_
+- `(Authenticated)` `/events/new` is a single-page form, not a multi-step wizard despite spec wording. Consider splitting into Basics / Branding / Schedule / Review steps with progress indicator.
+- `(Authenticated)` `/events/:id/attendees` would benefit from an "Invite attendee" CTA + modal once OG-1 is implemented.
+- `(Authenticated)` `/notifications` once OG-3 is wired needs empty-state, unread badge sync with header bell, and pagination.
 
 ## Polish applied (in this session)
 _(none yet)_
+
+## Bugs fixed (in this session)
+- OG-2 `apps/web/src/app/(organiser)/account/page.tsx:138` — strip non-editable fields (id, organiserId, createdAt, updatedAt) before PATCH /organiser/settings to clear 400 from DTO whitelist. Commit `7a145ce` (`fix: organiser-settings — strip non-editable fields before PATCH`).
 
 ## Definition of done checklist
 - [ ] Phase 0 smoke gate passed for all 3 roles
