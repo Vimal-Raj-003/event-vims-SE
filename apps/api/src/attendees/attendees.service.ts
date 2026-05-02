@@ -443,4 +443,283 @@ export class AttendeesService {
       content: vCardContent,
     };
   }
+
+  // ──────────────────────────────────────────────
+  // Get Profile Status (Attendee)
+  // ──────────────────────────────────────────────
+
+  async getProfileStatus(attendeeId: string) {
+    const attendee = await this.prisma.attendee.findUnique({
+      where: { id: attendeeId },
+    });
+
+    if (!attendee) {
+      throw new NotFoundException('Attendee not found');
+    }
+
+    const allFields: Record<string, unknown> = {
+      firstName: attendee.firstName,
+      lastName: attendee.lastName,
+      age: attendee.age,
+      sex: attendee.sex,
+      email: attendee.email,
+      phone: attendee.phone,
+      profilePhotoUrl: attendee.profilePhotoUrl,
+      designation: attendee.designation,
+      company: attendee.company,
+      occupation: attendee.occupation,
+      industry: attendee.industry,
+      businessType: attendee.businessType,
+      services: attendee.services,
+      interestedIn: attendee.interestedIn,
+      tags: attendee.tags,
+      networkingGoals: attendee.networkingGoals,
+      linkedinUrl: attendee.linkedinUrl,
+      websiteUrl: attendee.websiteUrl,
+    };
+
+    const filled = Object.values(allFields).filter(
+      (v) => v !== null && v !== undefined && v !== '' && !(Array.isArray(v) && v.length === 0),
+    ).length;
+    const total = Object.keys(allFields).length;
+    const missingFields = Object.entries(allFields)
+      .filter(([, v]) => v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0))
+      .map(([k]) => k);
+
+    const completedSteps: string[] = [];
+    if (attendee.firstName && attendee.lastName && attendee.phone) completedSteps.push('personal');
+    if (attendee.company && attendee.designation && attendee.industry) completedSteps.push('professional');
+    if (attendee.services && Array.isArray(attendee.services) && (attendee.services as string[]).length > 0) completedSteps.push('services');
+    if (attendee.networkingGoals && Array.isArray(attendee.networkingGoals) && (attendee.networkingGoals as string[]).length > 0) completedSteps.push('preferences');
+
+    let currentStep = 1;
+    if (completedSteps.includes('personal')) currentStep = 2;
+    if (completedSteps.includes('professional')) currentStep = 3;
+    if (completedSteps.includes('services')) currentStep = 4;
+
+    return {
+      profileCompleted: attendee.profileCompleted,
+      currentStep: attendee.profileCompleted ? 4 : currentStep,
+      completedSteps,
+      completenessPercent: Math.round((filled / total) * 100),
+      missingFields,
+    };
+  }
+
+  // ──────────────────────────────────────────────
+  // Save Wizard Step (Attendee)
+  // ──────────────────────────────────────────────
+
+  async saveWizardStep(attendeeId: string, step: number, data: Record<string, unknown>) {
+    const attendee = await this.prisma.attendee.findUnique({
+      where: { id: attendeeId },
+    });
+
+    if (!attendee) {
+      throw new NotFoundException('Attendee not found');
+    }
+
+    const updateData: Record<string, unknown> = {};
+
+    if (step === 1) {
+      if (data.firstName !== undefined) updateData.firstName = data.firstName;
+      if (data.lastName !== undefined) updateData.lastName = data.lastName;
+      if (data.age !== undefined) updateData.age = Number(data.age) || null;
+      if (data.sex !== undefined) updateData.sex = data.sex;
+      if (data.phone !== undefined) updateData.phone = data.phone;
+      if (data.profilePhotoUrl !== undefined) updateData.profilePhotoUrl = data.profilePhotoUrl;
+    } else if (step === 2) {
+      if (data.company !== undefined) updateData.company = data.company;
+      if (data.designation !== undefined) updateData.designation = data.designation;
+      if (data.occupation !== undefined) updateData.occupation = data.occupation;
+      if (data.industry !== undefined) updateData.industry = data.industry;
+      if (data.businessType !== undefined) updateData.businessType = data.businessType;
+      if (data.city !== undefined) updateData.city = data.city;
+      if (data.companySize !== undefined) updateData.companySize = data.companySize;
+    } else if (step === 3) {
+      if (data.services !== undefined) updateData.services = data.services;
+      if (data.interestedIn !== undefined) updateData.interestedIn = data.interestedIn;
+      if (data.tags !== undefined) updateData.tags = data.tags;
+    } else if (step === 4) {
+      if (data.networkingGoals !== undefined) updateData.networkingGoals = data.networkingGoals;
+      if (data.linkedinUrl !== undefined) updateData.linkedinUrl = data.linkedinUrl;
+      if (data.websiteUrl !== undefined) updateData.websiteUrl = data.websiteUrl;
+      if (data.twitterHandle !== undefined) updateData.twitterHandle = data.twitterHandle;
+      if (data.consentGiven !== undefined) {
+        updateData.consentGiven = data.consentGiven;
+        if (data.consentGiven) updateData.consentedAt = new Date();
+      }
+      updateData.profileCompleted = true;
+      updateData.profileCompletedAt = new Date();
+    }
+
+    updateData.lastActiveAt = new Date();
+
+    await this.prisma.attendee.update({
+      where: { id: attendeeId },
+      data: updateData,
+    });
+
+    if (step === 4) {
+      await this.prisma.activity.create({
+        data: {
+          attendeeId,
+          eventId: attendee.eventId,
+          type: 'profile_completed',
+          metadata: {},
+        },
+      });
+    }
+
+    const status = await this.getProfileStatus(attendeeId);
+
+    return {
+      success: true,
+      profileCompleted: step === 4 ? true : attendee.profileCompleted,
+      currentStep: step,
+      ...status,
+    };
+  }
+
+  // ──────────────────────────────────────────────
+  // Track Card Share (Attendee)
+  // ──────────────────────────────────────────────
+
+  async trackCardShare(attendeeId: string, method: string) {
+    const attendee = await this.prisma.attendee.findUnique({
+      where: { id: attendeeId },
+    });
+
+    if (!attendee) {
+      throw new NotFoundException('Attendee not found');
+    }
+
+    await this.prisma.attendee.update({
+      where: { id: attendeeId },
+      data: { cardShareCount: { increment: 1 } },
+    });
+
+    await this.prisma.activity.create({
+      data: {
+        attendeeId,
+        eventId: attendee.eventId,
+        type: 'card_shared',
+        metadata: { method },
+      },
+    });
+
+    return { success: true };
+  }
+
+  // ──────────────────────────────────────────────
+  // Track Profile View (Attendee)
+  // ──────────────────────────────────────────────
+
+  async trackProfileView(viewerId: string, viewedId: string, source: string) {
+    if (viewerId === viewedId) {
+      return { success: true };
+    }
+
+    const [viewer, viewed] = await Promise.all([
+      this.prisma.attendee.findUnique({ where: { id: viewerId } }),
+      this.prisma.attendee.findUnique({ where: { id: viewedId } }),
+    ]);
+
+    if (!viewer || !viewed) {
+      throw new NotFoundException('Attendee not found');
+    }
+
+    if (viewer.eventId !== viewed.eventId) {
+      throw new ForbiddenException('Attendees are not in the same event');
+    }
+
+    await Promise.all([
+      this.prisma.profileView.create({
+        data: {
+          viewerId,
+          viewedId,
+          eventId: viewer.eventId,
+          source,
+        },
+      }),
+      this.prisma.attendee.update({
+        where: { id: viewedId },
+        data: { profileViewCount: { increment: 1 } },
+      }),
+      this.prisma.activity.create({
+        data: {
+          attendeeId: viewerId,
+          eventId: viewer.eventId,
+          type: 'profile_viewed',
+          metadata: { targetId: viewedId, targetName: `${viewed.firstName} ${viewed.lastName}` },
+        },
+      }),
+    ]);
+
+    return { success: true };
+  }
+
+  // ──────────────────────────────────────────────
+  // Get Public Profile (Attendee)
+  // ──────────────────────────────────────────────
+
+  async getPublicProfile(requesterId: string, targetId: string) {
+    const [requester, target] = await Promise.all([
+      this.prisma.attendee.findUnique({ where: { id: requesterId } }),
+      this.prisma.attendee.findUnique({ where: { id: targetId } }),
+    ]);
+
+    if (!target) {
+      throw new NotFoundException('Attendee not found');
+    }
+
+    if (requester && requester.eventId === target.eventId) {
+      const connection = await this.prisma.connectionRequest.findFirst({
+        where: {
+          eventId: target.eventId,
+          status: ConnectionStatus.ACCEPTED,
+          OR: [
+            { senderId: requesterId, receiverId: targetId },
+            { senderId: targetId, receiverId: requesterId },
+          ],
+        },
+      });
+
+      return {
+        id: target.id,
+        firstName: target.firstName,
+        lastName: target.lastName,
+        designation: target.designation,
+        company: target.company,
+        businessType: target.businessType,
+        industry: target.industry,
+        services: target.services,
+        tags: target.tags,
+        city: target.city,
+        profilePhotoUrl: target.profilePhotoUrl,
+        companyLogoUrl: target.companyLogoUrl,
+        interestedIn: target.interestedIn,
+        networkingGoals: target.networkingGoals,
+        linkedinUrl: target.linkedinUrl,
+        websiteUrl: target.websiteUrl,
+        twitterHandle: target.twitterHandle,
+        connectionStatus: connection ? 'ACCEPTED' : null,
+      };
+    }
+
+    return {
+      id: target.id,
+      firstName: target.firstName,
+      lastName: target.lastName,
+      designation: target.designation,
+      company: target.company,
+      businessType: target.businessType,
+      industry: target.industry,
+      services: target.services,
+      city: target.city,
+      profilePhotoUrl: target.profilePhotoUrl,
+      companyLogoUrl: target.companyLogoUrl,
+      connectionStatus: null,
+    };
+  }
 }

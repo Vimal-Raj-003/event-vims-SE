@@ -37,8 +37,13 @@ export default function SuperAdminLoginPage() {
       );
       router.push("/admin/overview");
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setError(msg ?? "Invalid email or password.");
+      const axiosErr = err as { code?: string; response?: { data?: { message?: string } } };
+      if (axiosErr.code === "ERR_NETWORK" || axiosErr.code === "ECONNREFUSED") {
+        setError("Cannot connect to the server. Please ensure the API is running.");
+      } else {
+        const msg = axiosErr.response?.data?.message;
+        setError(msg ?? "Invalid email or password.");
+      }
     } finally {
       setLoading(false);
     }

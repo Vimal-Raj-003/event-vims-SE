@@ -84,6 +84,19 @@ export interface Attendee {
   companyLogoUrl: string | null;
   registeredAt: string;
   isPaused: boolean;
+  age: number | null;
+  sex: string | null;
+  occupation: string | null;
+  interestedIn: string[];
+  networkingGoals: string[];
+  profileCompleted: boolean;
+  profileCompletedAt: string | null;
+  linkedinUrl: string | null;
+  websiteUrl: string | null;
+  twitterHandle: string | null;
+  profileViewCount: number;
+  cardShareCount: number;
+  qrScanCount: number;
 }
 
 export interface ConnectionRequest {
@@ -170,4 +183,70 @@ export interface ExportSheets {
     connectionsAccepted: number;
   }[];
   announcementLog: Announcement[];
+}
+
+export interface AttendeeProfileStatus {
+  profileCompleted: boolean;
+  currentStep: number;
+  completedSteps: string[];
+  completenessPercent: number;
+  missingFields: string[];
+}
+
+export interface WizardStepData {
+  step: 1 | 2 | 3 | 4;
+  data: Record<string, unknown>;
+}
+
+export interface ProfileView {
+  id: string;
+  viewerId: string;
+  viewedId: string;
+  eventId: string;
+  source: string;
+  createdAt: string;
+}
+
+export interface ConnectionNote {
+  id: string;
+  authorId: string;
+  connectionId: string;
+  eventId: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MatchScore {
+  id: string;
+  attendeeId: string;
+  targetId: string;
+  eventId: string;
+  score: number;
+  matchReasons: string[];
+  computedAt: string;
+}
+
+export interface Activity {
+  id: string;
+  attendeeId: string;
+  eventId: string;
+  type: 'connection_made' | 'card_shared' | 'profile_viewed' | 'profile_completed' | 'note_added';
+  metadata: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface NetworkingAnalytics {
+  connections: { total: number; thisWeek: number; pending: number };
+  profileViews: { total: number; thisWeek: number; recentViewers: { id: string; firstName: string; lastName: string; profilePhotoUrl: string | null }[] };
+  cardShares: { total: number; thisWeek: number; byMethod: Record<string, number> };
+  qrScans: { total: number; thisWeek: number };
+  networkingScore: number;
+  engagementTrend: 'up' | 'flat' | 'down';
+}
+
+export interface Suggestion {
+  attendee: PublicAttendeeCard;
+  score: number;
+  reasons: string[];
 }

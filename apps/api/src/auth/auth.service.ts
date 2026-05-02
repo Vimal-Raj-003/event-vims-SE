@@ -346,6 +346,7 @@ export class AuthService {
         email: attendee.email,
         role: 'attendee',
         eventId: dto.eventId,
+        profileCompleted: attendee.profileCompleted,
       },
     };
   }

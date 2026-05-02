@@ -97,7 +97,40 @@ export const INDUSTRIES = [
   'BFSI',
   'Government',
   'NGO',
+  'AI / Machine Learning',
+  'Cybersecurity',
+  'Blockchain / Web3',
+  'Gaming',
+  'Hospitality',
+  'Telecommunications',
+  'Renewable Energy',
+  'Biotechnology',
+  'Entertainment',
+  'Sports',
+  'Fashion',
+  'Insurance',
+  'Travel & Tourism',
   'Other',
+] as const;
+
+export const SEX_OPTIONS = [
+  'Male',
+  'Female',
+  'Non-Binary',
+  'Prefer not to say',
+] as const;
+
+export const NETWORKING_GOALS = [
+  'Find Partners',
+  'Find Clients',
+  'Find Suppliers',
+  'Hiring / Recruitment',
+  'Seek Mentorship',
+  'Offer Mentorship',
+  'Market Research',
+  'Investment',
+  'Knowledge Sharing',
+  'General Networking',
 ] as const;
 
 export const DATA_RETENTION = {

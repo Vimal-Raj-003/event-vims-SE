@@ -1,6 +1,6 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://api.se.vimsenterprise.com/api/v1";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
 
 interface TokenPayload {
   accessToken: string;
@@ -19,11 +19,42 @@ function getStoredTokens(): TokenPayload | null {
 
 function setStoredTokens(tokens: TokenPayload): void {
   localStorage.setItem("vims:tokens", JSON.stringify(tokens));
+  // Sync tokens to auth store's localStorage key so Zustand persist stays in sync
+  try {
+    const authRaw = localStorage.getItem("vims:auth");
+    if (authRaw) {
+      const authState = JSON.parse(authRaw);
+      authState.state = {
+        ...authState.state,
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+      };
+      localStorage.setItem("vims:auth", JSON.stringify(authState));
+    }
+  } catch {
+    // Non-critical — auth store will re-sync on next login
+  }
 }
 
 function clearStoredTokens(): void {
   localStorage.removeItem("vims:tokens");
   localStorage.removeItem("vims:user");
+  localStorage.removeItem("vims:auth");
+}
+
+function getLoginPathForCurrentRole(): string {
+  try {
+    const authRaw = localStorage.getItem("vims:auth");
+    if (authRaw) {
+      const authState = JSON.parse(authRaw);
+      const role = authState?.state?.user?.role;
+      if (role === "super-admin") return "/auth/super-admin/login";
+      if (role === "attendee") return "/auth/attendee/login";
+    }
+  } catch {
+    // Fall through to default
+  }
+  return "/auth/organiser/login";
 }
 
 export const apiClient = axios.create({
@@ -60,7 +91,7 @@ apiClient.interceptors.response.use(
       if (!tokens?.refreshToken) {
         clearStoredTokens();
         if (typeof window !== "undefined") {
-          window.location.href = "/auth/organiser/login";
+          window.location.href = getLoginPathForCurrentRole();
         }
         return Promise.reject(error);
       }
@@ -77,7 +108,7 @@ apiClient.interceptors.response.use(
       } catch {
         clearStoredTokens();
         if (typeof window !== "undefined") {
-          window.location.href = "/auth/organiser/login";
+          window.location.href = getLoginPathForCurrentRole();
         }
         return Promise.reject(error);
       }

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, type ReactNode } from "react";
+import Hero from "@/components/Hero";
 
 /* ─── Scroll-reveal hook ────────────────────────────────────────── */
 function useReveal() {
@@ -38,7 +39,7 @@ export default function LandingPage() {
   useReveal();
   return (
     <div className="overflow-x-hidden">
-      <HeroSection />
+      <Hero />
       <MissionBar />
       <HowItWorksSection />
       <FeaturesSection />
@@ -50,130 +51,14 @@ export default function LandingPage() {
   );
 }
 
-/* ─── Hero ──────────────────────────────────────────────────────── */
-function HeroSection() {
-  return (
-    <section className="relative min-h-screen flex items-center overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-violet-950">
-      {/* Animated gradient orbs */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="animate-blob absolute -top-32 -left-32 h-[520px] w-[520px] rounded-full bg-indigo-600/20 blur-[100px]" />
-        <div className="animate-blob absolute top-1/3 -right-40 h-[480px] w-[480px] rounded-full bg-violet-600/20 blur-[100px]" style={{ animationDelay: "2.5s" }} />
-        <div className="animate-blob absolute -bottom-24 left-1/3 h-[400px] w-[400px] rounded-full bg-blue-500/15 blur-[90px]" style={{ animationDelay: "5s" }} />
-        {/* Noise texture */}
-        <div className="absolute inset-0 opacity-[0.025]"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E")`,
-            backgroundSize: "200px 200px",
-          }}
-        />
-        {/* Subtle grid */}
-        <div className="absolute inset-0 opacity-[0.04]"
-          style={{
-            backgroundImage: "linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)",
-            backgroundSize: "72px 72px",
-          }}
-        />
-      </div>
-
-      <div className="relative mx-auto max-w-7xl px-4 py-28 sm:px-6 sm:py-36 lg:px-8">
-        <div className="text-center max-w-4xl mx-auto">
-
-          {/* Beta badge */}
-          <div className="animate-in inline-flex items-center gap-2.5 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-5 py-2 text-sm text-emerald-300 backdrop-blur-sm mb-8 shadow-sm">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-pulse-ring absolute inline-flex h-full w-full rounded-full bg-emerald-400" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
-            </span>
-            Beta Launch · Completely Free to Start
-          </div>
-
-          {/* Headline */}
-          <h1 className="animate-in text-5xl font-extrabold text-white sm:text-6xl lg:text-7xl leading-[1.06] tracking-tight text-balance" style={{ animationDelay: "80ms" }}>
-            Event Networking{" "}
-            <span className="relative inline-block">
-              <span className="bg-gradient-to-r from-indigo-300 via-violet-300 to-blue-300 bg-clip-text text-transparent animate-gradient">
-                That Actually Works
-              </span>
-              {/* Animated draw-in underline */}
-              <svg
-                className="absolute -bottom-3 left-0 w-full overflow-visible"
-                viewBox="0 0 400 12"
-                preserveAspectRatio="none"
-                fill="none"
-                aria-hidden="true"
-              >
-                <path
-                  className="animate-draw"
-                  d="M4 8 Q80 2 160 6 Q240 10 320 4 Q360 2 396 6"
-                  stroke="url(#heroUL)"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                />
-                <defs>
-                  <linearGradient id="heroUL" x1="0" y1="0" x2="400" y2="0" gradientUnits="userSpaceOnUse">
-                    <stop stopColor="#818cf8" />
-                    <stop offset="0.5" stopColor="#c4b5fd" />
-                    <stop offset="1" stopColor="#93c5fd" />
-                  </linearGradient>
-                </defs>
-              </svg>
-            </span>
-          </h1>
-
-          <p className="animate-in mt-9 text-lg text-white/65 leading-relaxed max-w-2xl mx-auto sm:text-xl" style={{ animationDelay: "160ms" }}>
-            Replace paper business cards with smart digital networking. Attendees connect instantly via QR codes, explore a live directory, and leave with real relationships — not forgotten contacts.
-          </p>
-
-          {/* CTAs */}
-          <div className="animate-in mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center" style={{ animationDelay: "240ms" }}>
-            <Link href="/auth/organiser/signup" className="btn-primary px-8 py-3.5 text-base shadow-xl shadow-primary/30">
-              Start for Free
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5-5 5M6 12h12" />
-              </svg>
-            </Link>
-            <a href="#how-it-works" className="btn-ghost px-8 py-3.5 text-base">
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-              </svg>
-              See How It Works
-            </a>
-          </div>
-
-          {/* Stats — startup-honest */}
-          <div className="animate-in mt-14 grid grid-cols-3 gap-4 max-w-lg mx-auto sm:max-w-2xl sm:gap-6" style={{ animationDelay: "320ms" }}>
-            {[
-              { value: "5 min", label: "Event setup" },
-              { value: "100%", label: "Free in beta" },
-              { value: "0", label: "Paper cards" },
-            ].map((s) => (
-              <div key={s.label} className="rounded-2xl border border-white/10 bg-white/6 p-4 backdrop-blur-sm transition-all duration-300 hover:bg-white/10 hover:border-white/20 hover:-translate-y-0.5">
-                <p className="text-2xl font-black text-white sm:text-3xl">{s.value}</p>
-                <p className="mt-1 text-xs text-white/50 sm:text-sm">{s.label}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Wave divider */}
-      <div className="absolute bottom-0 left-0 right-0">
-        <svg viewBox="0 0 1440 80" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full">
-          <path d="M0 40 Q360 80 720 40 Q1080 0 1440 40 L1440 80 L0 80 Z" fill="white" />
-        </svg>
-      </div>
-    </section>
-  );
-}
-
 /* ─── Mission bar (replaces fake logo bar) ──────────────────────── */
 function MissionBar() {
   const pillars = [
-    { icon: "⚡", text: "Set up in 5 minutes" },
-    { icon: "🔒", text: "Privacy-first, DPDP compliant" },
-    { icon: "📲", text: "No app download needed" },
-    { icon: "🇮🇳", text: "Built for Indian events" },
-    { icon: "✅", text: "Zero paper cards" },
+    { icon: ( <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg> ), text: "Set up in 5 minutes" },
+    { icon: ( <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg> ), text: "Privacy-first, DPDP compliant" },
+    { icon: ( <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg> ), text: "No app download needed" },
+    { icon: ( <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" /></svg> ), text: "Built for Indian events" },
+    { icon: ( <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg> ), text: "Zero paper cards" },
   ];
   return (
     <div className="border-b border-border bg-muted/20 py-6">
@@ -184,7 +69,7 @@ function MissionBar() {
         <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-2">
           {pillars.map((p) => (
             <span key={p.text} className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground/60 hover:text-muted-foreground transition-colors duration-150 cursor-default select-none">
-              <span>{p.icon}</span>
+              {p.icon}
               {p.text}
             </span>
           ))}
@@ -199,7 +84,7 @@ function HowItWorksSection() {
   const steps = [
     {
       num: "01", delay: "reveal-d1",
-      icon: "📋",
+      icon: ( <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg> ),
       title: "Create Your Event",
       body: "Set up your event in 5 minutes. Add custom branding, registration fields, and networking rules through our guided wizard.",
       color: "from-blue-50 to-indigo-50", border: "border-blue-100", iconBg: "bg-blue-100 text-blue-700",
@@ -207,7 +92,7 @@ function HowItWorksSection() {
     },
     {
       num: "02", delay: "reveal-d2",
-      icon: "📲",
+      icon: ( <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z" /><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 19.5h.75v.75h-.75v-.75zM19.5 13.5h.75v.75h-.75v-.75zM19.5 19.5h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75v-.75z" /></svg> ),
       title: "Attendees Scan & Connect",
       body: "Each attendee gets a unique digital card and QR code. One scan exchanges contact details — no apps, works in any browser.",
       color: "from-violet-50 to-purple-50", border: "border-violet-100", iconBg: "bg-violet-100 text-violet-700",
@@ -215,7 +100,7 @@ function HowItWorksSection() {
     },
     {
       num: "03", delay: "reveal-d3",
-      icon: "🤝",
+      icon: ( <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" /></svg> ),
       title: "Build Real Relationships",
       body: "All connections are saved in a live directory. Export vCards, sync with your CRM, and follow up with every new contact.",
       color: "from-emerald-50 to-teal-50", border: "border-emerald-100", iconBg: "bg-emerald-100 text-emerald-700",
@@ -273,12 +158,12 @@ function HowItWorksSection() {
 /* ─── Features ──────────────────────────────────────────────────── */
 function FeaturesSection() {
   const features = [
-    { icon: "🔒", tag: "Privacy", title: "Privacy-First Networking", body: "Attendees control who sees their details. Phone and email only shared after mutual connection acceptance.", accent: "from-blue-500/5 to-indigo-500/5", tagCls: "bg-blue-50 text-blue-600 border-blue-100" },
-    { icon: "⚡", tag: "Speed", title: "Instant QR Exchange", body: "Scan any attendee's QR to send a connection request. No manual entry, no paper cards, no friction.", accent: "from-amber-500/5 to-orange-500/5", tagCls: "bg-amber-50 text-amber-600 border-amber-100" },
-    { icon: "📊", tag: "Analytics", title: "Live Analytics Dashboard", body: "Real-time stats on registrations, connections, and engagement rates — all during the event.", accent: "from-violet-500/5 to-purple-500/5", tagCls: "bg-violet-50 text-violet-600 border-violet-100" },
-    { icon: "🎨", tag: "Design", title: "Full Custom Branding", body: "Custom colours, logos, and branded digital cards. Match your event identity perfectly.", accent: "from-rose-500/5 to-pink-500/5", tagCls: "bg-rose-50 text-rose-600 border-rose-100" },
-    { icon: "📤", tag: "Export", title: "Excel Export", body: "One-click export of all attendees, connections, and engagement data in structured Excel format.", accent: "from-emerald-500/5 to-teal-500/5", tagCls: "bg-emerald-50 text-emerald-600 border-emerald-100" },
-    { icon: "✅", tag: "Legal", title: "DPDP Compliant", body: "Built for India's Digital Personal Data Protection Act. Consent capture, right to access, right to erasure.", accent: "from-sky-500/5 to-cyan-500/5", tagCls: "bg-sky-50 text-sky-600 border-sky-100" },
+    { icon: ( <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg> ), tag: "Privacy", title: "Privacy-First Networking", body: "Attendees control who sees their details. Phone and email only shared after mutual connection acceptance.", accent: "from-blue-500/5 to-indigo-500/5", tagCls: "bg-blue-50 text-blue-600 border-blue-100" },
+    { icon: ( <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg> ), tag: "Speed", title: "Instant QR Exchange", body: "Scan any attendee's QR to send a connection request. No manual entry, no paper cards, no friction.", accent: "from-amber-500/5 to-orange-500/5", tagCls: "bg-amber-50 text-amber-600 border-amber-100" },
+    { icon: ( <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg> ), tag: "Analytics", title: "Live Analytics Dashboard", body: "Real-time stats on registrations, connections, and engagement rates — all during the event.", accent: "from-violet-500/5 to-purple-500/5", tagCls: "bg-violet-50 text-violet-600 border-violet-100" },
+    { icon: ( <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.53 16.122a3 3 0 00-5.78 1.128 2.25 2.25 0 01-2.4 2.245 4.5 4.5 0 008.4-2.245c0-.399-.078-.78-.22-1.128zm0 0a15.998 15.998 0 003.388-1.62m-5.043-.025a15.994 15.994 0 011.622-3.395m3.42 3.42a15.995 15.995 0 004.764-4.648l3.876-5.814a1.151 1.151 0 00-1.597-1.597L14.146 6.32a15.996 15.996 0 00-4.649 4.763m3.42 3.42a6.776 6.776 0 00-3.42-3.42" /></svg> ), tag: "Design", title: "Full Custom Branding", body: "Custom colours, logos, and branded digital cards. Match your event identity perfectly.", accent: "from-rose-500/5 to-pink-500/5", tagCls: "bg-rose-50 text-rose-600 border-rose-100" },
+    { icon: ( <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" /></svg> ), tag: "Export", title: "Excel Export", body: "One-click export of all attendees, connections, and engagement data in structured Excel format.", accent: "from-emerald-500/5 to-teal-500/5", tagCls: "bg-emerald-50 text-emerald-600 border-emerald-100" },
+    { icon: ( <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg> ), tag: "Legal", title: "DPDP Compliant", body: "Built for India's Digital Personal Data Protection Act. Consent capture, right to access, right to erasure.", accent: "from-sky-500/5 to-cyan-500/5", tagCls: "bg-sky-50 text-sky-600 border-sky-100" },
   ];
 
   return (
@@ -527,7 +412,7 @@ function PricingSection() {
         {/* Beta notice */}
         <div className="reveal mb-8 mx-auto max-w-xl rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-3.5 text-center">
           <p className="text-sm font-semibold text-emerald-700">
-            🎉 Beta Launch — All plans are currently <strong>free of charge</strong>. No billing until we exit beta.
+            Beta Launch — All plans are currently <strong>free of charge</strong>. No billing until we exit beta.
           </p>
         </div>
 

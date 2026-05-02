@@ -21,6 +21,9 @@ import { StorageModule } from './storage/storage.module';
 import { QrModule } from './qr/qr.module';
 import { SupportTicketsModule } from './support-tickets/support-tickets.module';
 import { OrganiserModule } from './organiser/organiser.module';
+import { SmartMatchingModule } from './smart-matching/smart-matching.module';
+import { AnalyticsModule } from './analytics/analytics.module';
+import { ActivityModule } from './activity/activity.module';
 import { HealthController } from './health/health.controller';
 
 @Module({
@@ -87,6 +90,9 @@ import { HealthController } from './health/health.controller';
     QrModule,
     SupportTicketsModule,
     OrganiserModule,
+    SmartMatchingModule,
+    AnalyticsModule,
+    ActivityModule,
   ],
   controllers: [HealthController],
 })

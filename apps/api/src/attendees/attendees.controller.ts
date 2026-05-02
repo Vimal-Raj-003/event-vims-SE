@@ -13,7 +13,7 @@ import {
   SetMetadata,
 } from '@nestjs/common';
 import { Response } from 'express';
-import { IsString, IsEmail, IsBoolean, IsOptional, IsNotEmpty } from 'class-validator';
+import { IsString, IsEmail, IsBoolean, IsOptional, IsNotEmpty, IsInt, IsNumber, ValidateIf } from 'class-validator';
 import { AttendeesService } from './attendees.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -59,6 +59,19 @@ class UpdateAttendeeProfileDto {
   @IsOptional() tags?: unknown;
   @IsOptional() @IsString() profilePhotoUrl?: string;
   @IsOptional() @IsString() companyLogoUrl?: string;
+}
+
+class WizardStepDto {
+  @IsInt() step: 1 | 2 | 3 | 4;
+  data: Record<string, unknown>;
+}
+
+class TrackCardShareDto {
+  @IsString() @IsNotEmpty() method: string;
+}
+
+class TrackProfileViewDto {
+  @IsString() @IsNotEmpty() source: string;
 }
 
 // ──────────────────────────────────────────────
@@ -129,6 +142,76 @@ export class AttendeesController {
     @Body() dto: UpdateAttendeeProfileDto,
   ) {
     return this.attendeesService.updateProfile(user.sub, dto);
+  }
+
+  // ──────────────────────────────────────────────
+  // ATTENDEE: Get Profile Status
+  // ──────────────────────────────────────────────
+
+  @Get('attendees/me/profile-status')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ATTENDEE')
+  async getProfileStatus(@CurrentUser() user: CurrentUserData) {
+    return this.attendeesService.getProfileStatus(user.sub);
+  }
+
+  // ──────────────────────────────────────────────
+  // ATTENDEE: Save Wizard Step
+  // ──────────────────────────────────────────────
+
+  @Patch('attendees/me/wizard-step')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ATTENDEE')
+  async saveWizardStep(
+    @CurrentUser() user: CurrentUserData,
+    @Body() dto: WizardStepDto,
+  ) {
+    return this.attendeesService.saveWizardStep(user.sub, dto.step, dto.data);
+  }
+
+  // ──────────────────────────────────────────────
+  // ATTENDEE: Track Card Share
+  // ──────────────────────────────────────────────
+
+  @Post('attendees/me/card/shared')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ATTENDEE')
+  @HttpCode(HttpStatus.OK)
+  async trackCardShare(
+    @CurrentUser() user: CurrentUserData,
+    @Body() dto: TrackCardShareDto,
+  ) {
+    return this.attendeesService.trackCardShare(user.sub, dto.method);
+  }
+
+  // ──────────────────────────────────────────────
+  // ATTENDEE: Track Profile View
+  // ──────────────────────────────────────────────
+
+  @Post('attendees/:attendeeId/view')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ATTENDEE')
+  @HttpCode(HttpStatus.OK)
+  async trackProfileView(
+    @Param('attendeeId') attendeeId: string,
+    @CurrentUser() user: CurrentUserData,
+    @Body() dto: TrackProfileViewDto,
+  ) {
+    return this.attendeesService.trackProfileView(user.sub, attendeeId, dto.source);
+  }
+
+  // ──────────────────────────────────────────────
+  // ATTENDEE: Get Public Profile
+  // ──────────────────────────────────────────────
+
+  @Get('attendees/:attendeeId/profile')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ATTENDEE')
+  async getPublicProfile(
+    @Param('attendeeId') attendeeId: string,
+    @CurrentUser() user: CurrentUserData,
+  ) {
+    return this.attendeesService.getPublicProfile(user.sub, attendeeId);
   }
 
   // ──────────────────────────────────────────────

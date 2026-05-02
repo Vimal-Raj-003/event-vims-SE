@@ -120,11 +120,30 @@ model Attendee {
   isPaused            Boolean             @default(false) @map("is_paused")
   consentGiven        Boolean             @default(false) @map("consent_given")
   consentedAt         DateTime?           @map("consented_at")
+  age                 Int?
+  sex                 String?
+  occupation          String?
+  interestedIn        Json                @default("[]") @map("interested_in")
+  networkingGoals     Json                @default("[]") @map("networking_goals")
+  profileCompleted    Boolean             @default(false) @map("profile_completed")
+  profileCompletedAt  DateTime?           @map("profile_completed_at")
+  linkedinUrl         String?             @map("linkedin_url")
+  websiteUrl          String?             @map("website_url")
+  twitterHandle       String?             @map("twitter_handle")
+  profileViewCount    Int                 @default(0) @map("profile_view_count")
+  cardShareCount      Int                 @default(0) @map("card_share_count")
+  qrScanCount         Int                 @default(0) @map("qr_scan_count")
   event               Event               @relation(fields: [eventId], references: [id])
   receivedConnections ConnectionRequest[] @relation("ReceivedConnections")
   sentConnections     ConnectionRequest[] @relation("SentConnections")
   notifications       Notification[]
   pushSubscriptions   PushSubscription[]
+  profileViewsReceived ProfileView[]      @relation("ProfileViewed")
+  profileViewsMade     ProfileView[]      @relation("ProfileViewer")
+  connectionNotes      ConnectionNote[]
+  matchScores          MatchScore[]       @relation("MatchTarget")
+  matchScoresAsSource  MatchScore[]       @relation("MatchSource")
+  activities           Activity[]
 
   @@unique([eventId, email])
   @@index([eventId])
@@ -303,6 +322,73 @@ model OrganiserSettings {
   organiser                  Organiser @relation(fields: [organiserId], references: [id], onDelete: Cascade)
 
   @@map("organiser_settings")
+}
+
+model ProfileView {
+  id        String   @id @default(cuid())
+  viewerId  String   @map("viewer_id")
+  viewedId  String   @map("viewed_id")
+  eventId   String   @map("event_id")
+  source    String   @default("directory")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  viewer Attendee @relation("ProfileViewer", fields: [viewerId], references: [id])
+  viewed Attendee @relation("ProfileViewed", fields: [viewedId], references: [id])
+
+  @@index([viewedId, createdAt])
+  @@index([viewerId, eventId])
+  @@index([eventId, createdAt])
+  @@map("profile_views")
+}
+
+model ConnectionNote {
+  id           String   @id @default(cuid())
+  authorId     String   @map("author_id")
+  connectionId String   @map("connection_id")
+  eventId      String   @map("event_id")
+  content      String   @db.VarChar(500)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  author Attendee @relation(fields: [authorId], references: [id])
+
+  @@index([authorId, connectionId])
+  @@index([eventId])
+  @@map("connection_notes")
+}
+
+model MatchScore {
+  id           String   @id @default(cuid())
+  attendeeId   String   @map("attendee_id")
+  targetId     String   @map("target_id")
+  eventId      String   @map("event_id")
+  score        Float
+  matchReasons Json     @default("[]") @map("match_reasons")
+  computedAt   DateTime @default(now()) @map("computed_at")
+
+  attendee Attendee @relation("MatchSource", fields: [attendeeId], references: [id])
+  target   Attendee @relation("MatchTarget", fields: [targetId], references: [id])
+
+  @@unique([attendeeId, targetId])
+  @@index([attendeeId, score])
+  @@index([eventId, score])
+  @@map("match_scores")
+}
+
+model Activity {
+  id         String   @id @default(cuid())
+  attendeeId String   @map("attendee_id")
+  eventId    String   @map("event_id")
+  type       String
+  metadata   Json     @default("{}")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  attendee Attendee @relation(fields: [attendeeId], references: [id])
+
+  @@index([attendeeId, createdAt])
+  @@index([eventId, type])
+  @@index([createdAt])
+  @@map("activities")
 }
 
 enum TicketStatus {

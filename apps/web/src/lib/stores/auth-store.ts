@@ -18,11 +18,13 @@ interface AuthState {
   refreshToken: string | null;
   activeEventId: string | null;
   isAuthenticated: boolean;
+  profileCompleted: boolean;
 
   setUser: (user: User) => void;
   setTokens: (accessToken: string, refreshToken: string) => void;
   setActiveEvent: (eventId: string) => void;
-  login: (user: User, accessToken: string, refreshToken: string) => void;
+  setProfileCompleted: (completed: boolean) => void;
+  login: (user: User, accessToken: string, refreshToken: string, profileCompleted?: boolean) => void;
   logout: () => void;
 }
 
@@ -34,6 +36,7 @@ export const useAuthStore = create<AuthState>()(
       refreshToken: null,
       activeEventId: null,
       isAuthenticated: false,
+      profileCompleted: false,
 
       setUser: (user) => set({ user }),
 
@@ -42,12 +45,15 @@ export const useAuthStore = create<AuthState>()(
 
       setActiveEvent: (eventId) => set({ activeEventId: eventId }),
 
-      login: (user, accessToken, refreshToken) =>
+      setProfileCompleted: (completed) => set({ profileCompleted: completed }),
+
+      login: (user, accessToken, refreshToken, profileCompleted) =>
         set({
           user,
           accessToken,
           refreshToken,
           isAuthenticated: true,
+          profileCompleted: profileCompleted ?? false,
         }),
 
       logout: () =>
@@ -57,6 +63,7 @@ export const useAuthStore = create<AuthState>()(
           refreshToken: null,
           activeEventId: null,
           isAuthenticated: false,
+          profileCompleted: false,
         }),
     }),
     {
@@ -75,6 +82,7 @@ export const useAuthStore = create<AuthState>()(
         refreshToken: state.refreshToken,
         activeEventId: state.activeEventId,
         isAuthenticated: state.isAuthenticated,
+        profileCompleted: state.profileCompleted,
       }),
     },
   ),
