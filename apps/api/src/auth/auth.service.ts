@@ -9,6 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { ClsService } from 'nestjs-cls';
+import { MailService } from '../mail/mail.service';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 
@@ -36,6 +37,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly cls: ClsService,
+    private readonly mailService: MailService,
   ) {}
 
   // ──────────────────────────────────────────────
@@ -87,10 +89,12 @@ export class AuthService {
 
     this.logger.log(`Organiser signup initiated: ${organiser.email}`);
 
+    await this.mailService.sendVerificationEmail(organiser.email, verificationToken);
+
     return {
       id: organiser.id,
       email: organiser.email,
-      message: 'Verification email sent. Please check your inbox.',
+      message: 'Verification email sent. Please check your inbox (and spam folder).',
       verificationToken:
         this.configService.get<string>('NODE_ENV') !== 'production'
           ? verificationToken
@@ -280,8 +284,11 @@ export class AuthService {
 
     this.logger.log(`OTP requested for: ${dto.email} (event: ${dto.eventId})`);
 
+    const eventName = event.name ?? 'VIMS Event';
+    await this.mailService.sendOtpEmail(dto.email, otp, eventName);
+
     return {
-      message: 'OTP sent to your email address.',
+      message: 'OTP sent to your email address. Please check your inbox and spam folder.',
       otp:
         this.configService.get<string>('NODE_ENV') !== 'production'
           ? otp

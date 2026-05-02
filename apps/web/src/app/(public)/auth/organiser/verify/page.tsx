@@ -76,6 +76,11 @@ export default function OrganiserVerifyPage() {
             Redirecting you to login…
           </p>
         )}
+        {status === "error" && !token && (
+          <p className="mt-1 text-xs text-muted-foreground">
+            Tip: Check your spam/junk folder for the verification email.
+          </p>
+        )}
       </div>
 
       {status === "error" && (

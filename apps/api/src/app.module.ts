@@ -24,6 +24,7 @@ import { OrganiserModule } from './organiser/organiser.module';
 import { SmartMatchingModule } from './smart-matching/smart-matching.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { ActivityModule } from './activity/activity.module';
+import { MailModule } from './mail/mail.module';
 import { HealthController } from './health/health.controller';
 
 @Module({
@@ -93,6 +94,7 @@ import { HealthController } from './health/health.controller';
     SmartMatchingModule,
     AnalyticsModule,
     ActivityModule,
+    MailModule,
   ],
   controllers: [HealthController],
 })

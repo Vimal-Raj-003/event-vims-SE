@@ -92,6 +92,9 @@ export default function AttendeeLoginPage() {
           <p className="text-xs text-muted-foreground">
             The event ID is in the invitation email or QR code from your organiser.
           </p>
+          <p className="text-xs text-muted-foreground/70 mt-1">
+            Tip: If you don't receive the OTP, check your spam/junk folder.
+          </p>
         </div>
 
         <button

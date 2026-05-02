@@ -104,6 +104,9 @@ export default function AttendeeVerifyPage() {
         <p className="mt-2 text-sm text-muted-foreground">
           We sent a 6-digit code to <span className="font-medium text-foreground">{email}</span>
         </p>
+        <p className="text-xs text-muted-foreground/70 mt-1">
+          Check your spam/junk folder if you don't see the email.
+        </p>
       </div>
 
       {isDev && devOtpParam && (

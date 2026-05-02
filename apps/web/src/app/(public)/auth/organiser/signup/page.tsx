@@ -28,7 +28,7 @@ export default function OrganiserSignupPage() {
         name: form.name, organisation: form.organisation,
         email: form.email, mobile: form.mobile, password: form.password,
       });
-      router.push(`/auth/organiser/verify?email=${encodeURIComponent(form.email)}`);
+      router.push(`/auth/organiser/verify?email=${encodeURIComponent(form.email)}&sent=1`);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       setError(msg ?? "Something went wrong. Please try again.");
