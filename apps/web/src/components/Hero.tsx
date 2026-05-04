@@ -3,6 +3,7 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { HeroBackground } from "./hero/HeroBackground";
+import { HeroPhonePreview } from "./hero/HeroPhonePreview";
 
 const NetworkAnimation = dynamic(
   () => import("./NetworkAnimation").then((m) => m.NetworkAnimation),
@@ -147,6 +148,10 @@ export default function Hero() {
                 </p>
               </div>
             ))}
+          </div>
+
+          <div className="mt-10 flex justify-center">
+            <HeroPhonePreview />
           </div>
         </div>
       </div>
