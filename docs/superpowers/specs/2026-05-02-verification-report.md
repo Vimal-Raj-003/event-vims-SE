@@ -5,11 +5,11 @@
 
 ## Executive summary
 - Flows passed: 22 / 28 (super-admin 7/8, organiser 9/11, attendee 6/9)
-- Functional bugs fixed: 1 (`OG-2` — organiser settings PATCH 400, commit `7a145ce`)
-- Functional bugs deferred: 9 (`DA-1`, `AU-1`, `ST-1`, `OG-1`, `OG-3`, `AT-1`, `AT-2`, `AT-3`, `AT-4`)
+- Functional bugs fixed: 2 (`OG-2` — organiser settings PATCH 400 commit `7a145ce`; `DA-1` — admin overview accepted-count filter, post-review fix)
+- Functional bugs deferred: 8 (`AU-1`, `ST-1`, `OG-1`, `OG-3`, `AT-1`, `AT-2`, `AT-3`, `AT-4`)
 - UI polish applied: 0 pages (no ≤20-line polish opportunities encountered — every UI gap exceeded the threshold)
 - UI redesign deferred to WS 2/3: 7 items (3 organiser + 4 attendee)
-- Severity breakdown of deferred bugs: **High 3** (`ST-1`, `AT-1`, `AT-2`); **Medium 3** (`AU-1`, `OG-1`, `OG-3`); **Low 3** (`DA-1`, `AT-3`, `AT-4`). `OG-2` was High and is now fixed.
+- Severity breakdown of deferred bugs: **High 3** (`ST-1`, `AT-1`, `AT-2`); **Medium 3** (`AU-1`, `OG-1`, `OG-3`); **Low 2** (`AT-3`, `AT-4`). `OG-2` (High) and `DA-1` (Low) are now fixed.
 - Test data cleanup: complete (5 rows removed via `npx prisma db execute` — see Cleanup section)
 
 ## Phase 0 — Smoke gate
@@ -306,10 +306,10 @@ Test attendee: Rahul Krishnan (`cmoj5gb5d0011n628xfgipnjr`, `rahul.krishnan@gmai
 
 ## Bugs deferred (require >10-line fix or user decision)
 
-### DA-1 — Connections KPI mislabelled on /admin/overview (severity: Low)
-- Symptom: dashboard card reads "25 — accepted connections", but DB has only 15 ACCEPTED rows. The API counts ALL `connectionRequest` rows (incl. PENDING/DECLINED).
-- Source: `apps/api/src/admin/admin.service.ts` line ~50 — `this.prisma.connectionRequest.count()` with no `where`.
-- Proposed fix (≤3 lines): add `{ where: { status: 'ACCEPTED' } }` to the count call, or update the UI label to "total connection requests". Either is ≤10 lines but touches semantics — defer for product decision.
+### DA-1 — Connections KPI mislabelled on /admin/overview (severity: Low → FIXED)
+- Symptom: dashboard card reads "25 — accepted connections", but DB had only 15 ACCEPTED rows. The API counted ALL `connectionRequest` rows (incl. PENDING/DECLINED).
+- Source: `apps/api/src/admin/admin.service.ts:50` — `this.prisma.connectionRequest.count()` with no `where`.
+- Fix applied (1-line): added `{ where: { status: 'ACCEPTED' } }` to the count call. Per code-review feedback that the F-stop "≤10-line" rule was the primary gate and the "product decision" reasoning had bent it. Label "accepted connections" matches the now-filtered count.
 
 ### AU-1 — Super-admin logins not audited (severity: Medium)
 - Symptom: auditLog table is empty even after a successful super-admin login (Phase 0 + Task 3 login). No row written for AUTH/LOGIN action.
@@ -375,6 +375,7 @@ _None._ Every UI issue encountered during verification exceeded the ≤20-line t
 
 ## Bugs fixed (in this session)
 - OG-2 `apps/web/src/app/(organiser)/account/page.tsx:138` — strip non-editable fields (id, organiserId, createdAt, updatedAt) before PATCH /organiser/settings to clear 400 from DTO whitelist. Commit `7a145ce` (`fix: organiser-settings — strip non-editable fields before PATCH`).
+- DA-1 `apps/api/src/admin/admin.service.ts:50` — filter `connectionRequest.count()` by `status: 'ACCEPTED'` so the /admin/overview KPI matches its label.
 
 ## Cleanup (Task 6)
 Test data created during the sweep was removed via `npx prisma db execute --schema apps/api/prisma/schema.prisma` after attendee sweep completed:
