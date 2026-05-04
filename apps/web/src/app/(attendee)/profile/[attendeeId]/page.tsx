@@ -103,14 +103,13 @@ export default function AttendeeProfilePage({
     if (!profile || profile.connectionStatus !== "PENDING_RECEIVED" || !eventId)
       return;
     apiClient
-      .get<{
-        data: Array<{ id: string; senderId: string; receiverId: string; status: string }>;
-      }>(`/events/${eventId}/connections?status=PENDING&with=${params.attendeeId}`)
+      .get<Array<{ connectionId: string; sender: { id: string } }>>(
+        `/events/${eventId}/connections/requests`,
+      )
       .then(({ data }) => {
-        const found = (data.data ?? []).find(
-          (c) => c.senderId === params.attendeeId && c.status === "PENDING",
-        );
-        setPendingId(found?.id ?? null);
+        const requests = Array.isArray(data) ? data : [];
+        const found = requests.find((r) => r.sender?.id === params.attendeeId);
+        setPendingId(found?.connectionId ?? null);
       })
       .catch(() => {});
   }, [profile, eventId, params.attendeeId]);
