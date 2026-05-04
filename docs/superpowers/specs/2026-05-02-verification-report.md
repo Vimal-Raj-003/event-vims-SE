@@ -211,7 +211,96 @@
 - Bugs: none
 
 ### Attendee
-_(populated during Task 5)_
+
+Test attendee: Rahul Krishnan (`cmoj5gb5d0011n628xfgipnjr`, `rahul.krishnan@gmail.com`) on event Bengaluru Tech Summit 2026 (`cmoj5g67h0003n628x95wm4a9`). Login flow used dev-mode OTP via `/auth/attendee/request-otp` returning `otpToken` and pre-filled `devOtp` query param.
+
+#### Task 6 cleanup queue (attendee-side)
+- Card share recorded in A3: Rahul's `attendees.cardShareCount` 0 → 1 (no destructive cleanup needed; counter only).
+- Profile view recorded in A5: `profile_views` row id=cmoqflww20005n6xg8rbsqspj (viewer Rahul → viewed Vikram) — minor analytics row, optional cleanup.
+- Connection request created in A6 + accepted in A7: `connection_requests` row id=cmoqfmzsw0009n6xgros8lemo (Rahul ↔ Vikram, status=ACCEPTED). Mark for cleanup in Task 6 (delete row, decrement Rahul's & Vikram's connection count if cached anywhere).
+- Deletion request created in A9: `data_deletion_requests` row id=cmoqfu76b000jn6xglxitz1y8 (requesterEmail=rahul.krishnan@gmail.com, status=PENDING). **MUST clean up in Task 6** — either DELETE the row or UPDATE status='CANCELLED' so admin queue stays clean.
+- (Carry-over from Task 4) organiser-side announcement `cmoo86x9z0008n6mkb98cabip` and event `cmoo8nmh2000mn6mkapauydty` remain in cleanup queue.
+
+#### A1. Home/landing
+- URL: `/home`
+- Status: ✅ PASS
+- Network: GET /attendees/me/analytics → 200; GET /attendees/me → 200; GET /events/:eventId/suggestions → 200
+- DB check: `attendees` row id=cmoj5gb5d0011n628xfgipnjr firstName=Rahul lastName=Krishnan profileCompleted=true (already set from prior runs)
+- Console: clean
+- Polish applied: no polish needed
+- Bugs: none
+
+#### A2. Wizard
+- URL: `/wizard` (loaded but did NOT save, since profileCompleted=true)
+- Status: ✅ PASS
+- Network: GET /attendees/me → 200
+- DB check: attendee.profileCompleted unchanged (still true); no save performed
+- Console: clean
+- Polish applied: no polish needed
+- Bugs: `AT-3 deferred` — wizard StepPersonal/Professional/Services/Preferences initialise React state from `defaultValues` only on first render; when `useAttendeeProfile()` resolves *after* first render (cold cache), the form remains empty even for completed profiles. Verified by re-login test: Vikram (cold session) saw the wizard correctly prefilled, but Rahul (warm/already logged in but with empty cache on /wizard nav) saw empty fields. Fix is multi-file (~30 lines via `useEffect` reset across 4 step components, or switch to controlled-by-`values` form). Out of scope for ≤10-line inline fix.
+
+#### A3. Business card
+- URL: `/card`
+- Status: ✅ PASS
+- Network: GET /attendees/me/card → 200; GET /attendees/me/profile-status → 200; POST /attendees/me/card/shared → 200 (after Copy Link click)
+- DB check: `attendees.cardShareCount` incremented from 0 → 1 for Rahul; profile data renders correctly (Rahul Krishnan / CTO / CloudNine Solutions / IT Services / Bengaluru / 4 service tags)
+- Console: clean
+- Polish applied: no polish needed
+- Bugs: none
+
+#### A4. Directory search & filters
+- URL: `/directory`
+- Status: ❌ FAIL
+- Network: GET /events/:eventId/attendees?page=1&pageSize=20 → **403 Forbidden** (twice)
+- DB check: 9 attendees exist for the event in `attendees` table; UI shows "0 people, No attendees found"
+- Console: 2 errors (both 403s on /events/:eventId/attendees)
+- Polish applied: no polish (cannot polish broken endpoint)
+- Bugs: `AT-1 deferred` (severity: High) — attendees role cannot list event peers. The only `GET /events/:eventId/attendees` route is `@Roles('ORGANISER')` with hard ownership check (`event.organiserId !== organiserId` → 403). Frontend `apps/web/src/app/(attendee)/directory/page.tsx:35` calls this same endpoint as the attendee. Fix requires adding `'ATTENDEE'` to the roles decorator AND branching the service to skip the organiser check when caller is an attendee but require attendee.eventId === eventId — ~15-25 lines across `apps/api/src/attendees/attendees.controller.ts:103` and `apps/api/src/attendees/attendees.service.ts:122`. Defer per >10-line rule. No filter UI exists (industry/company filter not yet implemented).
+
+#### A5. View other attendee profile
+- URL: `/profile/cmoj5gc5d0019n628lgno3s0q` (target: Vikram Patel)
+- Status: ❌ FAIL (UI route missing) / ✅ PASS (backend works)
+- Network: GET /attendees/:attendeeId/profile → 200 (called via fetch from console); POST /attendees/:attendeeId/view → 200
+- DB check: new `profile_views` row id=cmoqflww20005n6xg8rbsqspj viewerId=cmoj5gb5d0011n628xfgipnjr (Rahul) viewedId=cmoj5gc5d0019n628lgno3s0q (Vikram) eventId=cmoj5g67h0003n628x95wm4a9 source=directory
+- Console: 1 error (Next.js 404 for /profile/[attendeeId])
+- Polish applied: no polish (route is missing)
+- Bugs: `AT-2 deferred` (severity: High) — there is no `/profile/[attendeeId]` page in `apps/web/src/app/(attendee)/`. The home-page suggestion card and the suggestions page both link to `/profile/<id>` which 404s. Directory cards have no click handler/Link wrapper either. Backend endpoints (`GET /attendees/:id/profile`, `POST /attendees/:id/view`, `GET /attendees/:id/vcard`) are wired and functional. Fix requires creating a new dynamic route page (~80-150 lines) with profile fetch, view tracking, and a Connect button. Out of scope for ≤10-line inline fix.
+
+#### A6. Send connection request
+- URL: invoked via `fetch` from authenticated browser context (no Connect UI accessible)
+- Status: ✅ PASS (backend) / ❌ FAIL (no Connect UI in directory or suggestions reachable)
+- Network: POST /events/:eventId/connections → 201 Created with `{ id: 'cmoqfmzsw0009n6xgros8lemo', status: 'PENDING' }`
+- DB check: `connection_requests` row id=cmoqfmzsw0009n6xgros8lemo senderId=cmoj5gb5d0011n628xfgipnjr (Rahul) receiverId=cmoj5gc5d0019n628lgno3s0q (Vikram) status=PENDING message="verification test connect"
+- Console: clean
+- Polish applied: no polish (no UI Connect button reachable since A4/A5 routes broken)
+- Bugs: covered by AT-1 + AT-2 (Connect button lives on the missing profile page; suggestions page has a Connect button but is the only place — see A8)
+
+#### A7. Accept connection request
+- URL: logged out, logged in as Vikram (`vikram@greenlogistics.com`), then PATCH /events/:eventId/connections/:id/accept
+- Status: ✅ PASS (path a — full API roundtrip with separate auth session)
+- Network: POST /auth/attendee/request-otp → 200 (Vikram); POST /auth/attendee/verify-otp → 200; PATCH /events/:eventId/connections/cmoqfmzsw0009n6xgros8lemo/accept → 200; (re-login as Rahul) GET /events/:eventId/connections → 200
+- DB check: `connection_requests.cmoqfmzsw0009n6xgros8lemo` status flipped PENDING → ACCEPTED, respondedAt=2026-05-04T00:01:46.415Z. Rahul's `/connections` page now lists 2 people (Vikram Patel just-accepted + Meena Rajendran pre-existing). Note that Vikram's profileCompleted=false caused him to be redirected to /wizard so accept was performed via direct PATCH with his JWT — equivalent to UI button which uses same endpoint.
+- Console: clean
+- Polish applied: no polish needed
+- Bugs: none new (Vikram's wizard redirect is by design)
+
+#### A8. Suggestions
+- URL: `/suggestions`
+- Status: ✅ PASS
+- Network: GET /events/:eventId/suggestions → 200 (returns 1 suggestion: Test User, score 5%)
+- DB check: `match_scores` table contains only 2 rows (both for a different event/attendee pair) — no precomputed scores for Rahul, so suggestions are **computed on the fly** by the matching service.
+- Console: clean
+- Polish applied: no polish needed
+- Bugs: none. (Tangentially: the suggestion card links to `/profile/<id>` which 404s — see AT-2.)
+
+#### A9. Settings + deletion request
+- URL: `/settings`
+- Status: ✅ PASS (deletion request) / ⚠️ PARTIAL (no pause-profile toggle exists)
+- Network: GET /attendees/me → 200; POST /attendees/me/request-deletion → 201 Created
+- DB check: new `data_deletion_requests` row id=cmoqfu76b000jn6xglxitz1y8 requesterEmail=rahul.krishnan@gmail.com eventId=cmoj5g67h0003n628x95wm4a9 status=PENDING reason="Data deletion requested by attendee Rahul Krishnan (rahul.krishnan@gmail.com)" requestedAt=2026-05-04T00:05:09.972Z. **Task 6 cleanup**: this row is test data — mark COMPLETED or delete.
+- Console: clean
+- Polish applied: no polish needed
+- Bugs: `AT-4 deferred` (severity: Low) — Plan asked for a "pause profile" toggle (`isPaused: false → true`), but the settings page has only Download Data, Request Deletion, and Logout. The `attendees.isPaused` field exists in schema and is used by the connections rate-limiter, but there is no PATCH endpoint or UI control to flip it. Fix requires adding PATCH /attendees/me with `isPaused` in DTO + a toggle on settings page (~30 lines). Out of scope for ≤10-line inline fix. Plan also asked for a free-text reason input on the deletion dialog — current UI offers only a yes/no confirm, server auto-fills reason; same severity Low.
 
 ## Bugs deferred (require >10-line fix or user decision)
 
@@ -244,6 +333,26 @@ _(populated during Task 5)_
 - Symptom: page hardcodes 3 fake notifications referring to "TechConnect Summit 2025" (an event not in this organiser's data); zero API calls on load or on "Mark all as read" click; the `notification` Prisma model exists and has no read endpoint surfaced to the organiser app.
 - Source: `apps/web/src/app/(organiser)/notifications/page.tsx` — no fetch / apiClient / api/v1 references.
 - Proposed fix (~50 lines): add GET /organiser/notifications and PATCH /organiser/notifications/:id/read endpoints, wire the page to apiClient with proper loading/empty states. Out of scope for ≤10-line fix.
+
+### AT-1 — Attendee directory unreachable (403 Forbidden) (severity: High)
+- Symptom: `/directory` calls `GET /events/:eventId/attendees?page=1&pageSize=20` and gets 403. UI renders "0 people, No attendees found" even though 9 attendees exist for the event.
+- Source: `apps/api/src/attendees/attendees.controller.ts:103-120` — the route is decorated `@Roles('ORGANISER')` and the service `attendees.service.ts:122-140` requires an `organiserId` and throws `ForbiddenException` if `event.organiserId !== organiserId`. There is no attendee-facing peer-list endpoint. Frontend `apps/web/src/app/(attendee)/directory/page.tsx:35` calls the same organiser-only endpoint.
+- Proposed fix (~15-25 lines): add `'ATTENDEE'` to the route's roles decorator, modify the service to branch — when caller is attendee, verify `attendee.eventId === eventId` instead of organiser ownership, and (optionally) hide email/phone fields from attendees in the select. Two files touched. Out of scope for ≤10-line fix.
+
+### AT-2 — `/profile/[attendeeId]` route does not exist (severity: High)
+- Symptom: `/profile/cmoj5gc5d0019n628lgno3s0q` returns Next.js 404 ("This page could not be found"). Home-page suggestion card and `/suggestions` cards both link to `/profile/<id>`. Directory cards have no Link/onClick at all. Backend endpoints (`GET /attendees/:id/profile`, `POST /attendees/:id/view`, `GET /attendees/:id/vcard`) are wired and functional.
+- Source: missing file — `apps/web/src/app/(attendee)/profile/[attendeeId]/page.tsx` does not exist; navigation in `apps/web/src/app/(attendee)/home/page.tsx` (suggestion cards) and `apps/web/src/app/(attendee)/suggestions/page.tsx` link to it anyway.
+- Proposed fix (~80-150 lines): create new dynamic route `/profile/[attendeeId]/page.tsx` that calls `GET /attendees/:id/profile`, fires `POST /attendees/:id/view` on mount, renders the public profile, and includes a Connect button + Save vCard. Also wrap directory cards in `<Link href={'/profile/' + a.id}>`. Out of scope for ≤10-line fix.
+
+### AT-3 — Wizard form fields not prefilled when profile loads asynchronously (severity: Low)
+- Symptom: navigating to `/wizard` for an already-completed attendee with a cold `useAttendeeProfile()` cache renders empty fields ("First Name", "Last Name", "Phone" all blank) even though the API later returns the data. A user could accidentally overwrite their profile with empty values by clicking Continue without re-typing.
+- Source: `apps/web/src/components/wizard/StepPersonal.tsx:13-19` (and equivalent in StepProfessional, StepServices, StepPreferences) — `useState({ firstName: defaultValues?.firstName ?? '' })` is captured at first render only; no `useEffect` resets it when `defaultValues` resolves.
+- Proposed fix (~30 lines): add `useEffect(() => { if (defaultValues) setForm({ ...derived }); }, [defaultValues])` to each of 4 step components, OR convert to react-hook-form with `useForm({ values: defaultValues })`. Multi-file. Out of scope for ≤10-line fix.
+
+### AT-4 — Settings page lacks pause-profile toggle and reason input (severity: Low)
+- Symptom: Plan asked for a "pause profile" toggle and a free-text "reason" input on the deletion dialog. `/settings` only exposes Download Data, Request Deletion (yes/no confirm), and Logout. The `attendees.isPaused` field exists in schema and is used by the connections rate-limiter (auto-flips on >50 sends/hour), but there is no PATCH endpoint or UI control for the user to toggle it.
+- Source: `apps/web/src/app/(attendee)/settings/page.tsx`; no PATCH /attendees/me handler in `attendees.controller.ts`.
+- Proposed fix (~30 lines): add `PATCH /attendees/me` accepting `{ isPaused?: boolean }`, add Switch component + textarea for deletion reason, wire to apiClient. Out of scope for ≤10-line inline fix.
 
 ## UI redesign opportunities (workstreams 2 & 3)
 - `(Authenticated)` `/events/new` is a single-page form, not a multi-step wizard despite spec wording. Consider splitting into Basics / Branding / Schedule / Review steps with progress indicator.
