@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { useAttendeeProfile } from "@/lib/hooks/use-attendee";
@@ -10,6 +11,7 @@ import { showToast } from "@/hooks/use-toast";
 export default function AttendeeSettingsPage() {
   const logout = useAuthStore((s) => s.logout);
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { data: profile } = useAttendeeProfile();
 
   const [isPaused, setIsPaused] = useState<boolean>(false);
@@ -35,6 +37,7 @@ export default function AttendeeSettingsPage() {
     setPauseSubmitting(true);
     try {
       await apiClient.patch("/attendees/me", { isPaused: next });
+      queryClient.invalidateQueries({ queryKey: ["attendee-profile"] });
       showToast(next ? "Profile paused" : "Profile unpaused");
     } catch {
       setIsPaused(!next); // revert
@@ -96,7 +99,7 @@ export default function AttendeeSettingsPage() {
       <section className="rounded-xl border border-border bg-white p-5">
         <div className="flex items-center justify-between gap-4">
           <div className="flex-1 min-w-0">
-            <h2 className="font-semibold text-foreground">Pause profile</h2>
+            <h2 id="pause-profile-label" className="font-semibold text-foreground">Pause profile</h2>
             <p className="mt-0.5 text-sm text-muted-foreground">
               People can&apos;t request to connect while paused.
             </p>
@@ -105,6 +108,7 @@ export default function AttendeeSettingsPage() {
             type="button"
             role="switch"
             aria-checked={isPaused}
+            aria-labelledby="pause-profile-label"
             onClick={togglePause}
             disabled={pauseSubmitting}
             className={`relative h-6 w-11 rounded-full transition-colors shrink-0 ${
