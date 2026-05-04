@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import { HeroBackground } from "./hero/HeroBackground";
 
 const NetworkAnimation = dynamic(
   () => import("./NetworkAnimation").then((m) => m.NetworkAnimation),
@@ -12,7 +13,7 @@ export default function Hero() {
   return (
     <section className="relative min-h-screen flex items-center overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-violet-950">
       {/* Networking animation */}
-      <NetworkAnimation />
+      <HeroBackground />
 
       {/* Ambient radial glows */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
