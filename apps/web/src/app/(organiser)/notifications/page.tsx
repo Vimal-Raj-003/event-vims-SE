@@ -7,6 +7,7 @@ import { useAuthStore } from "@/lib/stores/auth-store";
 interface OrganiserEvent {
   id: string;
   status?: string;
+  startAt?: string;
 }
 
 type ActivityType =
@@ -108,7 +109,16 @@ export default function OrganiserActivityPage() {
         try {
           const { data } = await apiClient.get<OrganiserEvent[]>("/events");
           const events = data ?? [];
-          const preferred = events.find((e) => e.status === "PUBLISHED") ?? events[0];
+          // Sort by startAt desc so the most recently scheduled event wins
+          // — gives stable selection across refreshes when an organiser has
+          // multiple PUBLISHED events. Falls back to drafts if no published.
+          const sorted = [...events].sort((a, b) => {
+            const ta = a.startAt ? new Date(a.startAt).getTime() : 0;
+            const tb = b.startAt ? new Date(b.startAt).getTime() : 0;
+            return tb - ta;
+          });
+          const published = sorted.filter((e) => e.status === "PUBLISHED");
+          const preferred = published[0] ?? sorted[0];
           id = preferred?.id ?? null;
           if (cancelled) return;
           if (id) setEventId(id);

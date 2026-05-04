@@ -831,10 +831,12 @@ export class AttendeesService {
       throw new ForbiddenException('You do not own this event');
     }
 
+    const normalizedEmail = dto.email.trim().toLowerCase();
+
     const existing = await this.prisma.attendee.findFirst({
       where: {
         eventId,
-        email: { equals: dto.email, mode: 'insensitive' },
+        email: { equals: normalizedEmail, mode: 'insensitive' },
       },
     });
 
@@ -847,7 +849,7 @@ export class AttendeesService {
     const attendee = await this.prisma.attendee.create({
       data: {
         eventId,
-        email: dto.email,
+        email: normalizedEmail,
         firstName: dto.firstName,
         lastName: '',
         phone: '',
@@ -866,18 +868,18 @@ export class AttendeesService {
       'NEXT_PUBLIC_APP_URL',
       'http://localhost:3000',
     );
-    const loginLink = `${baseUrl}/auth/attendee/login?email=${encodeURIComponent(dto.email)}&eventId=${eventId}`;
+    const loginLink = `${baseUrl}/auth/attendee/login?email=${encodeURIComponent(normalizedEmail)}&eventId=${eventId}`;
 
     try {
       await this.mailService.sendInviteEmail(
-        dto.email,
+        normalizedEmail,
         dto.firstName,
         event.name,
         loginLink,
       );
     } catch (err) {
       this.logger.warn(
-        `Invite mail failed for ${dto.email}: ${(err as Error).message}`,
+        `Invite mail failed for ${normalizedEmail}: ${(err as Error).message}`,
       );
     }
 
@@ -888,7 +890,7 @@ export class AttendeesService {
         action: 'ATTENDEE_INVITED',
         entityType: 'Attendee',
         entityId: attendee.id,
-        metadata: { invitedEmail: dto.email, eventId } as Prisma.InputJsonValue,
+        metadata: { invitedEmail: normalizedEmail, eventId } as Prisma.InputJsonValue,
       },
     });
 
