@@ -34,8 +34,8 @@ export function HeroBackground() {
         }}
       />
 
-      <div className="absolute top-[10%] left-[5%] h-[300px] w-[300px] rounded-full bg-indigo-600/4 blur-[80px] pointer-events-none" />
-      <div className="absolute bottom-[15%] right-[10%] h-[250px] w-[250px] rounded-full bg-violet-600/3 blur-[70px] pointer-events-none" />
+      <div className="absolute top-[10%] left-[5%] h-[300px] w-[300px] rounded-full bg-indigo-600/[0.04] blur-[80px] pointer-events-none" />
+      <div className="absolute bottom-[15%] right-[10%] h-[250px] w-[250px] rounded-full bg-violet-600/[0.03] blur-[70px] pointer-events-none" />
 
       <div
         className="absolute inset-0 opacity-[0.02] pointer-events-none"

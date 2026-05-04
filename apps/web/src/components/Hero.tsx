@@ -103,7 +103,7 @@ export default function Hero() {
             style={{ animationDelay: "400ms" }}
           >
             <HeroPhonePreview />
-            <div className="hidden lg:inline-flex items-center gap-2 rounded-full bg-white/8 backdrop-blur-sm border border-white/10 px-4 py-1.5 text-xs text-white/80">
+            <div className="hidden lg:inline-flex items-center gap-2 rounded-full bg-white/[0.08] backdrop-blur-sm border border-white/10 px-4 py-1.5 text-xs text-white/80">
               <span className="relative flex h-1.5 w-1.5">
                 <span className="animate-pulse-ring absolute inline-flex h-full w-full rounded-full bg-emerald-400" />
                 <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
