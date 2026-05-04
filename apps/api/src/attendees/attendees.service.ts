@@ -307,6 +307,7 @@ export class AttendeesService {
       tags?: unknown;
       profilePhotoUrl?: string;
       companyLogoUrl?: string;
+      isPaused?: boolean;
     },
   ) {
     const attendee = await this.prisma.attendee.findUnique({
@@ -333,6 +334,7 @@ export class AttendeesService {
     if (dto.tags !== undefined) updateData.tags = dto.tags;
     if (dto.profilePhotoUrl !== undefined) updateData.profilePhotoUrl = dto.profilePhotoUrl;
     if (dto.companyLogoUrl !== undefined) updateData.companyLogoUrl = dto.companyLogoUrl;
+    if (dto.isPaused !== undefined) updateData.isPaused = dto.isPaused;
 
     const updated = await this.prisma.attendee.update({
       where: { id: attendeeId },
@@ -359,6 +361,7 @@ export class AttendeesService {
       tags: updated.tags,
       profilePhotoUrl: updated.profilePhotoUrl,
       companyLogoUrl: updated.companyLogoUrl,
+      isPaused: updated.isPaused,
     };
   }
 

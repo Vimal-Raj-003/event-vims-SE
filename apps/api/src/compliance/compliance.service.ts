@@ -128,7 +128,10 @@ export class ComplianceService {
   // Right to Erasure — DPPD Section 5
   // ──────────────────────────────────────────────
 
-  async requestDeletion(user: CurrentUserData) {
+  async requestDeletion(
+    user: CurrentUserData,
+    dto?: { reason?: string },
+  ) {
     const attendeeId = user.sub;
     const requesterEmail = user.email;
     const eventId = user.eventId ?? null;
@@ -145,11 +148,17 @@ export class ComplianceService {
       );
     }
 
+    const userReason = dto?.reason?.trim();
+    const trailer = `submitted by ${attendee.firstName} ${attendee.lastName} (${attendee.email})`;
+    const reason = userReason
+      ? `${userReason}\n\n— ${trailer}`
+      : `Data deletion requested by attendee ${attendee.firstName} ${attendee.lastName} (${attendee.email})`;
+
     const deletionRequest = await this.prisma.dataDeletionRequest.create({
       data: {
         requesterEmail,
         eventId,
-        reason: `Data deletion requested by attendee ${attendee.firstName} ${attendee.lastName} (${attendee.email})`,
+        reason,
         status: 'PENDING',
       },
     });

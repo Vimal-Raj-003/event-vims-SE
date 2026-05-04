@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Get,
   Post,
@@ -6,12 +7,20 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 import { ComplianceService } from './compliance.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { CurrentUserData } from '../auth/decorators/current-user.decorator';
+
+class RequestDeletionDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  reason?: string;
+}
 
 @Controller('attendees/me')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -34,7 +43,10 @@ export class ComplianceController {
 
   @Post('request-deletion')
   @HttpCode(HttpStatus.CREATED)
-  async requestDeletion(@CurrentUser() user: CurrentUserData) {
-    return this.complianceService.requestDeletion(user);
+  async requestDeletion(
+    @CurrentUser() user: CurrentUserData,
+    @Body() dto: RequestDeletionDto,
+  ) {
+    return this.complianceService.requestDeletion(user, dto);
   }
 }

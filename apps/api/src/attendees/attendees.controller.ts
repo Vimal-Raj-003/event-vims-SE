@@ -60,6 +60,7 @@ class UpdateAttendeeProfileDto {
   @IsOptional() tags?: unknown;
   @IsOptional() @IsString() profilePhotoUrl?: string;
   @IsOptional() @IsString() companyLogoUrl?: string;
+  @IsOptional() @IsBoolean() isPaused?: boolean;
 }
 
 class WizardStepDto {
