@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiClient } from "@/lib/api-client";
@@ -17,17 +17,94 @@ interface CreateEventPayload {
   brandSecondary: string;
 }
 
-function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
+const DRAFT_KEY = "vims:event-draft:v1";
+const TTL_MS = 24 * 60 * 60 * 1000;
+
+interface Draft {
+  savedAt: string;
+  form: CreateEventPayload;
+}
+
+const INITIAL_FORM: CreateEventPayload = {
+  name: "",
+  description: "",
+  startAt: "",
+  endAt: "",
+  venue: "",
+  venueMapUrl: "",
+  expectedCount: undefined,
+  brandPrimary: "#4F46E5",
+  brandSecondary: "#818CF8",
+};
+
+function readDraft(): Draft | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Draft;
+    if (
+      !parsed ||
+      typeof parsed.savedAt !== "string" ||
+      typeof parsed.form !== "object" ||
+      Date.now() - new Date(parsed.savedAt).getTime() > TTL_MS
+    ) {
+      localStorage.removeItem(DRAFT_KEY);
+      return null;
+    }
+    return parsed;
+  } catch {
+    try {
+      localStorage.removeItem(DRAFT_KEY);
+    } catch {
+      // ignore
+    }
+    return null;
+  }
+}
+
+function writeDraft(form: CreateEventPayload) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(
+      DRAFT_KEY,
+      JSON.stringify({ savedAt: new Date().toISOString(), form }),
+    );
+  } catch {
+    // localStorage full / disabled — silently swallow
+  }
+}
+
+function clearDraft() {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(DRAFT_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+function relativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} minutes ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} hour${hrs === 1 ? "" : "s"} ago`;
+  return new Date(iso).toLocaleDateString();
+}
+
+function isInitialForm(form: CreateEventPayload): boolean {
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={onChange}
-      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-200 ${checked ? "bg-primary" : "bg-muted"}`}
-    >
-      <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${checked ? "translate-x-4" : "translate-x-0.5"}`} />
-    </button>
+    form.name === INITIAL_FORM.name &&
+    form.description === INITIAL_FORM.description &&
+    form.startAt === INITIAL_FORM.startAt &&
+    form.endAt === INITIAL_FORM.endAt &&
+    form.venue === INITIAL_FORM.venue &&
+    form.venueMapUrl === INITIAL_FORM.venueMapUrl &&
+    form.expectedCount === INITIAL_FORM.expectedCount &&
+    form.brandPrimary === INITIAL_FORM.brandPrimary &&
+    form.brandSecondary === INITIAL_FORM.brandSecondary
   );
 }
 
@@ -49,20 +126,30 @@ export default function NewEventPage() {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [allowExport, setAllowExport] = useState(true);
-  const [requireApproval, setRequireApproval] = useState(false);
 
-  const [form, setForm] = useState<CreateEventPayload>({
-    name: "",
-    description: "",
-    startAt: "",
-    endAt: "",
-    venue: "",
-    venueMapUrl: "",
-    expectedCount: undefined,
-    brandPrimary: "#4F46E5",
-    brandSecondary: "#818CF8",
-  });
+  const [form, setForm] = useState<CreateEventPayload>(INITIAL_FORM);
+
+  const [draftStatus, setDraftStatus] = useState<"unknown" | "has-draft" | "no-draft">("unknown");
+  const [pendingDraft, setPendingDraft] = useState<Draft | null>(null);
+
+  // Mount: check for an existing draft
+  useEffect(() => {
+    const draft = readDraft();
+    if (draft) {
+      setPendingDraft(draft);
+      setDraftStatus("has-draft");
+    } else {
+      setDraftStatus("no-draft");
+    }
+  }, []);
+
+  // Save on form change (debounced 400ms), but only after the user has resolved the prompt
+  useEffect(() => {
+    if (draftStatus !== "no-draft") return;
+    if (isInitialForm(form)) return;
+    const handle = setTimeout(() => writeDraft(form), 400);
+    return () => clearTimeout(handle);
+  }, [form, draftStatus]);
 
   const set = (key: keyof CreateEventPayload, value: string | number | undefined) =>
     setForm((p) => ({ ...p, [key]: value }));
@@ -92,6 +179,7 @@ export default function NewEventPage() {
         brandSecondary: form.brandSecondary,
       };
       const { data } = await apiClient.post<{ id: string }>("/events", payload);
+      clearDraft();
       router.push(`/events/${data.id}`);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string | string[] } } })?.response?.data?.message;
@@ -101,10 +189,23 @@ export default function NewEventPage() {
     }
   }
 
+  function restoreDraft() {
+    if (!pendingDraft) return;
+    setForm({ ...INITIAL_FORM, ...pendingDraft.form });
+    setPendingDraft(null);
+    setDraftStatus("no-draft");
+  }
+
+  function startFresh() {
+    clearDraft();
+    setPendingDraft(null);
+    setDraftStatus("no-draft");
+  }
+
   return (
     <div className="h-full flex flex-col max-w-4xl mx-auto">
 
-      {/* Page title — compact, no back link needed (sidebar has Events nav) */}
+      {/* Page title */}
       <div className="flex items-center justify-between mb-4 shrink-0">
         <div>
           <h1 className="text-xl font-extrabold text-foreground tracking-tight">Create Event</h1>
@@ -117,6 +218,40 @@ export default function NewEventPage() {
           Back
         </Link>
       </div>
+
+      {/* Restore-draft prompt */}
+      {draftStatus === "has-draft" && pendingDraft && (
+        <div
+          role="status"
+          className="mb-4 flex items-start gap-3 rounded-2xl border border-primary/30 bg-primary/5 p-4 shrink-0"
+        >
+          <svg className="mt-0.5 h-5 w-5 shrink-0 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-foreground">Continue your draft?</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Started {relativeTime(pendingDraft.savedAt)}.
+            </p>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={restoreDraft}
+              className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary/90 transition-colors"
+            >
+              Restore draft
+            </button>
+            <button
+              type="button"
+              onClick={startFresh}
+              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted transition-colors"
+            >
+              Start fresh
+            </button>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="mb-4 flex items-start gap-2 rounded-xl bg-destructive/5 border border-destructive/20 px-4 py-3 shrink-0">
@@ -205,27 +340,6 @@ export default function NewEventPage() {
                       className={inputCls}
                     />
                   </Field>
-                </div>
-              </div>
-            </div>
-
-            {/* Section: Rules */}
-            <div className="rounded-2xl border border-border bg-white p-5">
-              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-4">Networking Rules</p>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between rounded-xl border border-border bg-muted/20 px-4 py-3">
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">Allow Contact Export</p>
-                    <p className="text-xs text-muted-foreground">Attendees can export connections as vCard</p>
-                  </div>
-                  <Toggle checked={allowExport} onChange={() => setAllowExport((v) => !v)} />
-                </div>
-                <div className="flex items-center justify-between rounded-xl border border-border bg-muted/20 px-4 py-3">
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">Require Connection Approval</p>
-                    <p className="text-xs text-muted-foreground">Requests must be accepted before details are shared</p>
-                  </div>
-                  <Toggle checked={requireApproval} onChange={() => setRequireApproval((v) => !v)} />
                 </div>
               </div>
             </div>
