@@ -9,7 +9,7 @@
 - Functional bugs deferred: 9 (`DA-1`, `AU-1`, `ST-1`, `OG-1`, `OG-3`, `AT-1`, `AT-2`, `AT-3`, `AT-4`)
 - UI polish applied: 0 pages (no ≤20-line polish opportunities encountered — every UI gap exceeded the threshold)
 - UI redesign deferred to WS 2/3: 7 items (3 organiser + 4 attendee)
-- Severity breakdown of deferred bugs: **High 4** (`ST-1`, `AT-1`, `AT-2`, formerly `OG-2`-fixed), **Medium 3** (`AU-1`, `OG-1`, `OG-3`), **Low 3** (`DA-1`, `AT-3`, `AT-4`)
+- Severity breakdown of deferred bugs: **High 3** (`ST-1`, `AT-1`, `AT-2`); **Medium 3** (`AU-1`, `OG-1`, `OG-3`); **Low 3** (`DA-1`, `AT-3`, `AT-4`). `OG-2` was High and is now fixed.
 - Test data cleanup: complete (5 rows removed via `npx prisma db execute` — see Cleanup section)
 
 ## Phase 0 — Smoke gate
@@ -387,7 +387,10 @@ Test data created during the sweep was removed via `npx prisma db execute --sche
 | `announcements.cmoo86x9z0008n6mkb98cabip` (O7 test announcement) | DELETED |
 | `events.cmoo8nmh2000mn6mkapauydty` (O11 DRAFT test event) | DELETED |
 
-Notes: the `DataDeletionRequestStatus` enum has no `CANCELLED` value (only `PENDING`/`APPROVED`/`REJECTED`/`PROCESSING`/`COMPLETED`) so the test request was hard-deleted instead of soft-cancelled. Rahul's `attendees.cardShareCount` was incremented 0→1 in A3 — left in place (one-off counter, not test data worth reverting).
+Notes:
+- The `DataDeletionRequestStatus` enum has no `CANCELLED` value (only `PENDING`/`APPROVED`/`REJECTED`/`PROCESSING`/`COMPLETED`) so the test request was hard-deleted instead of soft-cancelled.
+- Rahul's `attendees.cardShareCount` was incremented 0→1 in A3 — left in place (one-off counter, not test data worth reverting).
+- Phase 0 `OtpVerification` rows and the three `refresh_tokens` rows produced by the smoke-gate logins are intentionally retained — those tables are append-only audit trails, not test artefacts.
 
 ## Definition of done checklist
 - [x] Phase 0 smoke gate passed for all 3 roles
