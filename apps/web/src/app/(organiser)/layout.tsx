@@ -5,9 +5,10 @@ import { usePathname } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { useRouter } from "next/navigation";
-import { apiClient } from "@/lib/api-client";
+import { apiClient, clearStoredTokens } from "@/lib/api-client";
 import ChatbotWidget from "@/components/ChatbotWidget";
 import ThemeToggle from "@/components/ThemeToggle";
+import { useToast } from "@/hooks/use-toast";
 
 const PAGE_META: Record<string, { title: string; subtitle: string }> = {
   "dashboard":     { title: "Dashboard",      subtitle: "Real-time overview of your events" },
@@ -89,9 +90,10 @@ export default function OrganiserLayout({ children }: { children: React.ReactNod
 
   // Auth guard — redirect to login if not authenticated
   useEffect(() => {
-    const tokens = localStorage.getItem("vims:auth");
-    if (!tokens && !user) {
-      router.replace("/auth/organizer/login");
+    const auth = localStorage.getItem("vims:auth");
+    const tokens = localStorage.getItem("vims:tokens");
+    if (!auth && !tokens && !user) {
+      router.replace("/auth/organiser/login");
     }
   }, [user, router]);
 
@@ -120,6 +122,7 @@ export default function OrganiserLayout({ children }: { children: React.ReactNod
   async function handleLogout() {
     try { await apiClient.post("/auth/logout"); } catch { /* ignore */ }
     logoutStore();
+    clearStoredTokens();
     router.push("/auth/organiser/login");
   }
 
@@ -303,6 +306,23 @@ export default function OrganiserLayout({ children }: { children: React.ReactNod
       </div>
 
       <ChatbotWidget />
+      <Toaster />
+    </div>
+  );
+}
+
+function Toaster() {
+  const toasts = useToast();
+  return (
+    <div className="fixed bottom-20 inset-x-0 flex flex-col items-center gap-2 z-50 pointer-events-none">
+      {toasts.map((t) => (
+        <div
+          key={t.id}
+          className="px-4 py-2 rounded-full bg-foreground text-background text-sm font-medium shadow-lg"
+        >
+          {t.message}
+        </div>
+      ))}
     </div>
   );
 }

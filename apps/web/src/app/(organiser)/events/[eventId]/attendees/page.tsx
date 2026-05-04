@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
+import { InviteAttendeeModal } from "@/components/organiser/InviteAttendeeModal";
 
 interface Attendee {
   id: string;
@@ -33,6 +34,8 @@ export default function AttendeesPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [eventName, setEventName] = useState<string>("this event");
 
   const fetchAttendees = useCallback(
     async (q: string, p: number) => {
@@ -60,6 +63,19 @@ export default function AttendeesPage() {
   }, [search, fetchAttendees]);
 
   useEffect(() => {
+    if (!eventId) return;
+    apiClient
+      .get<{ name?: string; data?: { name?: string } }>(`/events/${eventId}`)
+      .then(({ data }) => {
+        const name = data?.name ?? data?.data?.name;
+        if (name) setEventName(name);
+      })
+      .catch(() => {
+        // ignore — fallback "this event"
+      });
+  }, [eventId]);
+
+  useEffect(() => {
     fetchAttendees(search, page);
   }, [page, fetchAttendees, search]);
 
@@ -72,6 +88,12 @@ export default function AttendeesPage() {
             {meta?.total ?? 0} registered attendees
           </p>
         </div>
+        <button
+          onClick={() => setInviteOpen(true)}
+          className="inline-flex items-center gap-1.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm px-4 py-2 hover:bg-primary/90 transition-colors"
+        >
+          Invite attendee
+        </button>
       </div>
 
       <div className="mt-6 relative">
@@ -144,6 +166,14 @@ export default function AttendeesPage() {
           </div>
         </div>
       )}
+
+      <InviteAttendeeModal
+        open={inviteOpen}
+        onClose={() => setInviteOpen(false)}
+        onInvited={() => fetchAttendees(search, 1)}
+        eventId={eventId}
+        eventName={eventName}
+      />
     </div>
   );
 }
