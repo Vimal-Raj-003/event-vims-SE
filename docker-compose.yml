@@ -2,6 +2,7 @@ name: vimsse
 
 services:
   api:
+    image: vimsse-api:latest
     build:
       context: .
       dockerfile: apps/api/Dockerfile
@@ -41,6 +42,7 @@ services:
       - vimsse_net
 
   web:
+    image: vimsse-web:latest
     build:
       context: .
       dockerfile: apps/web/Dockerfile
