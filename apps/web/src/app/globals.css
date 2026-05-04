@@ -82,39 +82,6 @@
   h1,h2,h3,h4,h5,h6 { @apply tracking-tight; }
 }
 
-/* ─── Scroll Reveal ────────────────────────────────────────────── */
-.reveal {
-  opacity: 0;
-  transform: translateY(36px);
-  transition: opacity 0.75s cubic-bezier(0.16,1,0.3,1),
-              transform 0.75s cubic-bezier(0.16,1,0.3,1);
-  will-change: opacity, transform;
-}
-.reveal.visible { opacity: 1; transform: translateY(0); }
-
-.reveal-left {
-  opacity: 0;
-  transform: translateX(-40px);
-  transition: opacity 0.75s cubic-bezier(0.16,1,0.3,1),
-              transform 0.75s cubic-bezier(0.16,1,0.3,1);
-}
-.reveal-left.visible { opacity:1; transform:translateX(0); }
-
-.reveal-right {
-  opacity: 0;
-  transform: translateX(40px);
-  transition: opacity 0.75s cubic-bezier(0.16,1,0.3,1),
-              transform 0.75s cubic-bezier(0.16,1,0.3,1);
-}
-.reveal-right.visible { opacity:1; transform:translateX(0); }
-
-.reveal-d1 { transition-delay: 80ms; }
-.reveal-d2 { transition-delay: 160ms; }
-.reveal-d3 { transition-delay: 240ms; }
-.reveal-d4 { transition-delay: 320ms; }
-.reveal-d5 { transition-delay: 400ms; }
-.reveal-d6 { transition-delay: 480ms; }
-
 /* ─── Animations ───────────────────────────────────────────────── */
 @keyframes fadeSlideIn {
   from { opacity:0; transform:translateY(14px); }
@@ -186,9 +153,24 @@
   animation: notifSlideIn 0.5s ease-out 1.2s forwards;
 }
 
+@keyframes glowDrift {
+  0%   { transform: translate(0, 0); }
+  100% { transform: translate(2%, -1%); }
+}
+
+.animate-glow-drift {
+  animation: glowDrift 60s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+.bg-dark-section {
+  background-color: hsl(222 47% 8%);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-ken-burns,
   .animate-notif-slide-in,
+  .animate-glow-drift,
   .animate-pulse-ring,
   .animate-gradient,
   .animate-float,
