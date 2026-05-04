@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { useRouter } from "next/navigation";
 import { apiClient, clearStoredTokens } from "@/lib/api-client";
@@ -69,24 +69,13 @@ const NAV = [
   },
 ];
 
-const MOCK_NOTIFS = [
-  { id: "n1", title: "New attendee registered", body: "Rahul Krishnan joined Bengaluru Tech Summit", isRead: true, time: "5m ago" },
-  { id: "n2", title: "Event published", body: "Bengaluru Tech Summit 2026 is now live", isRead: true, time: "2h ago" },
-  { id: "n3", title: "Connection milestone", body: "Your event reached 50 connections!", isRead: true, time: "1d ago" },
-];
-
 export default function OrganiserLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-  const [notifOpen, setNotifOpen] = useState(false);
-  const [notifs, setNotifs] = useState(MOCK_NOTIFS);
-  const notifRef = useRef<HTMLDivElement>(null);
   const user = useAuthStore((s) => s.user);
   const logoutStore = useAuthStore((s) => s.logout);
   const router = useRouter();
-
-  const unread = notifs.filter((n) => !n.isRead).length;
 
   // Auth guard — redirect to login if not authenticated
   useEffect(() => {
@@ -107,17 +96,6 @@ export default function OrganiserLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     localStorage.setItem("org-sidebar", collapsed ? "collapsed" : "expanded");
   }, [collapsed]);
-
-  // Close notif dropdown on outside click
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
-        setNotifOpen(false);
-      }
-    }
-    if (notifOpen) document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [notifOpen]);
 
   async function handleLogout() {
     try { await apiClient.post("/auth/logout"); } catch { /* ignore */ }
@@ -247,51 +225,15 @@ export default function OrganiserLayout({ children }: { children: React.ReactNod
             <ThemeToggle />
 
             {/* Notifications */}
-            <div className="relative" ref={notifRef}>
-              <button
-                onClick={() => setNotifOpen((v) => !v)}
-                className="relative rounded-xl p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-              >
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
-                </svg>
-                {unread > 0 && (
-                  <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-black text-white">
-                    {unread}
-                  </span>
-                )}
-              </button>
-
-              {notifOpen && (
-                <div className="absolute right-0 top-full mt-2 z-50 w-80 rounded-2xl border border-border bg-white dark:bg-card shadow-2xl shadow-black/10 overflow-hidden">
-                  <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-                    <p className="text-sm font-bold text-foreground">Notifications</p>
-                    {unread > 0 && (
-                      <button onClick={() => setNotifs((n) => n.map((x) => ({ ...x, isRead: true })))} className="text-xs font-semibold text-primary hover:underline">
-                        Mark all read
-                      </button>
-                    )}
-                  </div>
-                  <div className="max-h-72 overflow-y-auto divide-y divide-border">
-                    {notifs.map((n) => (
-                      <button key={n.id} onClick={() => setNotifs((prev) => prev.map((x) => x.id === n.id ? { ...x, isRead: true } : x))}
-                        className={`w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-muted/40 transition-colors ${n.isRead ? "" : "bg-primary/5"}`}
-                      >
-                        <div className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${n.isRead ? "bg-transparent" : "bg-primary"}`} />
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-sm font-semibold ${n.isRead ? "text-foreground" : "text-primary"}`}>{n.title}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">{n.body}</p>
-                        </div>
-                        <span className="shrink-0 text-[10px] text-muted-foreground">{n.time}</span>
-                      </button>
-                    ))}
-                  </div>
-                  {notifs.length === 0 && (
-                    <div className="py-8 text-center text-sm text-muted-foreground">No notifications</div>
-                  )}
-                </div>
-              )}
-            </div>
+            <Link
+              href="/notifications"
+              className="rounded-xl p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              title="Activity"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+              </svg>
+            </Link>
 
             <Link href="/events/new" className="hidden sm:inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-primary/20 hover:brightness-110 transition-all">
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
