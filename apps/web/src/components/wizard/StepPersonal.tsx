@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SEX_OPTIONS } from "@vims-events/shared";
 
 interface StepPersonalProps {
@@ -20,6 +20,31 @@ export function StepPersonal({ defaultValues, onNext, isLoading }: StepPersonalP
   const [photoUrl, setPhotoUrl] = useState((defaultValues?.profilePhotoUrl as string) ?? "");
 
   const [uploadError, setUploadError] = useState("");
+
+  const hasUserEdited = useRef(false);
+
+  useEffect(() => {
+    if (!defaultValues) return;
+    if (hasUserEdited.current) return;
+    setForm({
+      firstName: (defaultValues.firstName as string) ?? "",
+      lastName: (defaultValues.lastName as string) ?? "",
+      age: (defaultValues.age as string) ?? "",
+      sex: (defaultValues.sex as string) ?? "",
+      phone: (defaultValues.phone as string) ?? "",
+    });
+    setPhotoUrl((defaultValues.profilePhotoUrl as string) ?? "");
+  }, [defaultValues]);
+
+  const updateForm = (patch: Partial<typeof form>) => {
+    hasUserEdited.current = true;
+    setForm((prev) => ({ ...prev, ...patch }));
+  };
+
+  const updatePhoto = (url: string) => {
+    hasUserEdited.current = true;
+    setPhotoUrl(url);
+  };
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -42,7 +67,7 @@ export function StepPersonal({ defaultValues, onNext, isLoading }: StepPersonalP
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message ?? "Upload failed");
-      setPhotoUrl(data.url ?? data.data?.url ?? "");
+      updatePhoto(data.url ?? data.data?.url ?? "");
     } catch {
       setUploadError("Photo upload failed. You can continue and add it later.");
     }
@@ -95,7 +120,7 @@ export function StepPersonal({ defaultValues, onNext, isLoading }: StepPersonalP
             type="text"
             required
             value={form.firstName}
-            onChange={(e) => setForm({ ...form, firstName: e.target.value })}
+            onChange={(e) => updateForm({ firstName: e.target.value })}
             className="w-full rounded-xl border border-border bg-white px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
             placeholder="John"
           />
@@ -106,7 +131,7 @@ export function StepPersonal({ defaultValues, onNext, isLoading }: StepPersonalP
             type="text"
             required
             value={form.lastName}
-            onChange={(e) => setForm({ ...form, lastName: e.target.value })}
+            onChange={(e) => updateForm({ lastName: e.target.value })}
             className="w-full rounded-xl border border-border bg-white px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
             placeholder="Smith"
           />
@@ -122,7 +147,7 @@ export function StepPersonal({ defaultValues, onNext, isLoading }: StepPersonalP
             min="18"
             max="100"
             value={form.age}
-            onChange={(e) => setForm({ ...form, age: e.target.value })}
+            onChange={(e) => updateForm({ age: e.target.value })}
             className="w-full rounded-xl border border-border bg-white px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
             placeholder="30"
           />
@@ -131,7 +156,7 @@ export function StepPersonal({ defaultValues, onNext, isLoading }: StepPersonalP
           <label className="mb-1.5 block text-xs font-semibold text-muted-foreground uppercase tracking-wider">Gender</label>
           <select
             value={form.sex}
-            onChange={(e) => setForm({ ...form, sex: e.target.value })}
+            onChange={(e) => updateForm({ sex: e.target.value })}
             className="w-full rounded-xl border border-border bg-white px-3.5 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
           >
             <option value="">Select</option>
@@ -160,7 +185,7 @@ export function StepPersonal({ defaultValues, onNext, isLoading }: StepPersonalP
           type="tel"
           required
           value={form.phone}
-          onChange={(e) => setForm({ ...form, phone: e.target.value })}
+          onChange={(e) => updateForm({ phone: e.target.value })}
           className="w-full rounded-xl border border-border bg-white px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
           placeholder="+91 98765 43210"
         />

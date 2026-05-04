@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { NETWORKING_GOALS } from "@vims-event/shared/constants";
+import { useEffect, useRef, useState } from "react";
+import { NETWORKING_GOALS, SERVICES_OFFERED } from "@vims-events/shared";
 
 interface StepServicesProps {
   defaultValues?: Record<string, unknown>;
@@ -16,11 +16,23 @@ export function StepServices({ defaultValues, onNext, onBack, isLoading }: StepS
   const [tags, setTags] = useState<string[]>((defaultValues?.tags as string[]) ?? []);
   const [tagInput, setTagInput] = useState("");
 
+  const hasUserEdited = useRef(false);
+
+  useEffect(() => {
+    if (!defaultValues) return;
+    if (hasUserEdited.current) return;
+    setServices((defaultValues.services as string[]) ?? []);
+    setInterestedIn((defaultValues.interestedIn as string[]) ?? []);
+    setTags((defaultValues.tags as string[]) ?? []);
+  }, [defaultValues]);
+
   const toggleGoal = (goal: string, list: string[], setter: (v: string[]) => void) => {
+    hasUserEdited.current = true;
     setter(list.includes(goal) ? list.filter((g) => g !== goal) : [...list, goal]);
   };
 
   const addTag = () => {
+    hasUserEdited.current = true;
     const trimmed = tagInput.trim();
     if (trimmed && !tags.includes(trimmed)) {
       setTags([...tags, trimmed]);
@@ -28,7 +40,10 @@ export function StepServices({ defaultValues, onNext, onBack, isLoading }: StepS
     }
   };
 
-  const removeTag = (tag: string) => setTags(tags.filter((t) => t !== tag));
+  const removeTag = (tag: string) => {
+    hasUserEdited.current = true;
+    setTags(tags.filter((t) => t !== tag));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,7 +61,7 @@ export function StepServices({ defaultValues, onNext, onBack, isLoading }: StepS
       <div>
         <label className="mb-2 block text-xs font-semibold text-muted-foreground uppercase tracking-wider">Services You Offer</label>
         <div className="flex flex-wrap gap-2">
-          {["AI & ML", "Cloud Computing", "Web Development", "Mobile Apps", "Cybersecurity", "Data Analytics", "DevOps", "UI/UX Design", "Digital Marketing", "Consulting", "IoT", "Blockchain"].map((svc) => (
+          {SERVICES_OFFERED.map((svc) => (
             <button
               key={svc}
               type="button"

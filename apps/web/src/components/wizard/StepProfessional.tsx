@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { INDUSTRIES, BUSINESS_TYPES, COMPANY_SIZE_OPTIONS } from "@vims-event/shared/constants";
+import { useEffect, useRef, useState } from "react";
+import { INDUSTRIES, BUSINESS_TYPES, COMPANY_SIZE_OPTIONS } from "@vims-events/shared";
 
 interface StepProfessionalProps {
   defaultValues?: Record<string, unknown>;
@@ -21,6 +21,27 @@ export function StepProfessional({ defaultValues, onNext, onBack, isLoading }: S
     companySize: (defaultValues?.companySize as string) ?? "",
   });
 
+  const hasUserEdited = useRef(false);
+
+  useEffect(() => {
+    if (!defaultValues) return;
+    if (hasUserEdited.current) return;
+    setForm({
+      company: (defaultValues.company as string) ?? "",
+      designation: (defaultValues.designation as string) ?? "",
+      occupation: (defaultValues.occupation as string) ?? "",
+      industry: (defaultValues.industry as string) ?? "",
+      businessType: (defaultValues.businessType as string) ?? "",
+      city: (defaultValues.city as string) ?? "",
+      companySize: (defaultValues.companySize as string) ?? "",
+    });
+  }, [defaultValues]);
+
+  const updateForm = (patch: Partial<typeof form>) => {
+    hasUserEdited.current = true;
+    setForm((prev) => ({ ...prev, ...patch }));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onNext(form);
@@ -39,7 +60,7 @@ export function StepProfessional({ defaultValues, onNext, onBack, isLoading }: S
           type="text"
           required
           value={form.company}
-          onChange={(e) => setForm({ ...form, company: e.target.value })}
+          onChange={(e) => updateForm({ company: e.target.value })}
           className="w-full rounded-xl border border-border bg-white px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
           placeholder="TechNova Solutions"
         />
@@ -52,7 +73,7 @@ export function StepProfessional({ defaultValues, onNext, onBack, isLoading }: S
             type="text"
             required
             value={form.designation}
-            onChange={(e) => setForm({ ...form, designation: e.target.value })}
+            onChange={(e) => updateForm({ designation: e.target.value })}
             className="w-full rounded-xl border border-border bg-white px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
             placeholder="CEO & Founder"
           />
@@ -62,7 +83,7 @@ export function StepProfessional({ defaultValues, onNext, onBack, isLoading }: S
           <input
             type="text"
             value={form.occupation}
-            onChange={(e) => setForm({ ...form, occupation: e.target.value })}
+            onChange={(e) => updateForm({ occupation: e.target.value })}
             className="w-full rounded-xl border border-border bg-white px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
             placeholder="Entrepreneur"
           />
@@ -74,7 +95,7 @@ export function StepProfessional({ defaultValues, onNext, onBack, isLoading }: S
         <select
           required
           value={form.industry}
-          onChange={(e) => setForm({ ...form, industry: e.target.value })}
+          onChange={(e) => updateForm({ industry: e.target.value })}
           className="w-full rounded-xl border border-border bg-white px-3.5 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
         >
           <option value="">Select Industry</option>
@@ -89,7 +110,7 @@ export function StepProfessional({ defaultValues, onNext, onBack, isLoading }: S
         <select
           required
           value={form.businessType}
-          onChange={(e) => setForm({ ...form, businessType: e.target.value })}
+          onChange={(e) => updateForm({ businessType: e.target.value })}
           className="w-full rounded-xl border border-border bg-white px-3.5 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
         >
           <option value="">Select Type</option>
@@ -106,7 +127,7 @@ export function StepProfessional({ defaultValues, onNext, onBack, isLoading }: S
             type="text"
             required
             value={form.city}
-            onChange={(e) => setForm({ ...form, city: e.target.value })}
+            onChange={(e) => updateForm({ city: e.target.value })}
             className="w-full rounded-xl border border-border bg-white px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
             placeholder="Bangalore"
           />
@@ -115,7 +136,7 @@ export function StepProfessional({ defaultValues, onNext, onBack, isLoading }: S
           <label className="mb-1.5 block text-xs font-semibold text-muted-foreground uppercase tracking-wider">Company Size</label>
           <select
             value={form.companySize}
-            onChange={(e) => setForm({ ...form, companySize: e.target.value })}
+            onChange={(e) => updateForm({ companySize: e.target.value })}
             className="w-full rounded-xl border border-border bg-white px-3.5 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
           >
             <option value="">Select</option>

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { NETWORKING_GOALS } from "@vims-event/shared/constants";
+import { useEffect, useRef, useState } from "react";
+import { NETWORKING_GOALS } from "@vims-events/shared";
 
 interface StepPreferencesProps {
   defaultValues?: Record<string, unknown>;
@@ -21,7 +21,27 @@ export function StepPreferences({ defaultValues, onNext, onBack, isLoading }: St
     (defaultValues?.networkingGoals as string[]) ?? [],
   );
 
+  const hasUserEdited = useRef(false);
+
+  useEffect(() => {
+    if (!defaultValues) return;
+    if (hasUserEdited.current) return;
+    setForm({
+      linkedinUrl: (defaultValues.linkedinUrl as string) ?? "",
+      websiteUrl: (defaultValues.websiteUrl as string) ?? "",
+      twitterHandle: (defaultValues.twitterHandle as string) ?? "",
+      consentGiven: (defaultValues.consentGiven as boolean) ?? false,
+    });
+    setNetworkingGoals((defaultValues.networkingGoals as string[]) ?? []);
+  }, [defaultValues]);
+
+  const updateForm = (patch: Partial<typeof form>) => {
+    hasUserEdited.current = true;
+    setForm((prev) => ({ ...prev, ...patch }));
+  };
+
   const toggleGoal = (goal: string) => {
+    hasUserEdited.current = true;
     setNetworkingGoals((prev) =>
       prev.includes(goal) ? prev.filter((g) => g !== goal) : [...prev, goal],
     );
@@ -74,7 +94,7 @@ export function StepPreferences({ defaultValues, onNext, onBack, isLoading }: St
           <input
             type="url"
             value={form.linkedinUrl}
-            onChange={(e) => setForm({ ...form, linkedinUrl: e.target.value })}
+            onChange={(e) => updateForm({ linkedinUrl: e.target.value })}
             className="w-full rounded-xl border border-border bg-white py-2.5 pl-10 pr-3.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
             placeholder="linkedin.com/in/yourprofile"
           />
@@ -82,7 +102,7 @@ export function StepPreferences({ defaultValues, onNext, onBack, isLoading }: St
         <input
           type="url"
           value={form.websiteUrl}
-          onChange={(e) => setForm({ ...form, websiteUrl: e.target.value })}
+          onChange={(e) => updateForm({ websiteUrl: e.target.value })}
           className="w-full rounded-xl border border-border bg-white px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
           placeholder="https://yourwebsite.com"
         />
@@ -91,7 +111,7 @@ export function StepPreferences({ defaultValues, onNext, onBack, isLoading }: St
           <input
             type="text"
             value={form.twitterHandle}
-            onChange={(e) => setForm({ ...form, twitterHandle: e.target.value })}
+            onChange={(e) => updateForm({ twitterHandle: e.target.value })}
             className="w-full rounded-xl border border-border bg-white py-2.5 pl-8 pr-3.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
             placeholder="twitterhandle"
           />
@@ -104,7 +124,7 @@ export function StepPreferences({ defaultValues, onNext, onBack, isLoading }: St
           type="checkbox"
           required
           checked={form.consentGiven}
-          onChange={(e) => setForm({ ...form, consentGiven: e.target.checked })}
+          onChange={(e) => updateForm({ consentGiven: e.target.checked })}
           className="mt-0.5 h-4 w-4 rounded border-border text-primary accent-primary"
         />
         <span className="text-xs text-muted-foreground leading-relaxed">
