@@ -1,18 +1,48 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/stores/auth-store";
+import { useAttendeeProfile } from "@/lib/hooks/use-attendee";
+import { showToast } from "@/hooks/use-toast";
 
 export default function AttendeeSettingsPage() {
   const logout = useAuthStore((s) => s.logout);
   const router = useRouter();
+  const { data: profile } = useAttendeeProfile();
+
+  const [isPaused, setIsPaused] = useState<boolean>(false);
+  const [pauseSubmitting, setPauseSubmitting] = useState(false);
+
   const [deletionRequested, setDeletionRequested] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletionReason, setDeletionReason] = useState("");
   const [exportLoading, setExportLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (typeof profile?.isPaused === "boolean") {
+      setIsPaused(profile.isPaused);
+    }
+  }, [profile?.isPaused]);
+
+  async function togglePause() {
+    if (pauseSubmitting) return;
+    const next = !isPaused;
+    setIsPaused(next); // optimistic
+    setPauseSubmitting(true);
+    try {
+      await apiClient.patch("/attendees/me", { isPaused: next });
+      showToast(next ? "Profile paused" : "Profile unpaused");
+    } catch {
+      setIsPaused(!next); // revert
+      showToast("Could not update");
+    } finally {
+      setPauseSubmitting(false);
+    }
+  }
 
   async function handleDataExport() {
     setExportLoading(true);
@@ -37,9 +67,14 @@ export default function AttendeeSettingsPage() {
     setDeleteLoading(true);
     setError("");
     try {
-      await apiClient.post("/attendees/me/request-deletion");
+      const trimmed = deletionReason.trim();
+      await apiClient.post(
+        "/attendees/me/request-deletion",
+        trimmed ? { reason: trimmed } : {},
+      );
       setDeletionRequested(true);
       setShowDeleteConfirm(false);
+      setDeletionReason("");
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       setError(msg ?? "Failed to submit deletion request.");
@@ -56,6 +91,34 @@ export default function AttendeeSettingsPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-xl font-bold text-foreground">Settings</h1>
+
+      {/* Pause profile */}
+      <section className="rounded-xl border border-border bg-white p-5">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <h2 className="font-semibold text-foreground">Pause profile</h2>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              People can&apos;t request to connect while paused.
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={isPaused}
+            onClick={togglePause}
+            disabled={pauseSubmitting}
+            className={`relative h-6 w-11 rounded-full transition-colors shrink-0 ${
+              isPaused ? "bg-primary" : "bg-muted"
+            } disabled:opacity-60`}
+          >
+            <span
+              className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-background shadow transition-transform ${
+                isPaused ? "translate-x-5" : "translate-x-0"
+              }`}
+            />
+          </button>
+        </div>
+      </section>
 
       {/* Data export */}
       <section className="rounded-xl border border-border bg-white p-5">
@@ -87,10 +150,27 @@ export default function AttendeeSettingsPage() {
             Your deletion request has been submitted. We will process it within 30 days.
           </div>
         ) : showDeleteConfirm ? (
-          <div className="mt-4 space-y-3">
+          <div className="mt-4 space-y-4">
             <p className="text-sm font-medium text-destructive">
               Are you sure? This cannot be undone once processed.
             </p>
+
+            <label className="block">
+              <span className="block text-sm font-medium text-foreground mb-1.5">
+                Tell us why <span className="text-muted-foreground font-normal">(optional)</span>
+              </span>
+              <textarea
+                value={deletionReason}
+                onChange={(e) => setDeletionReason(e.target.value)}
+                maxLength={500}
+                placeholder="Helps us improve. Leave blank if you'd rather not say."
+                className="w-full min-h-[80px] rounded-lg border border-border bg-background p-3 text-sm focus:outline-none focus:border-primary/40 transition-colors"
+              />
+              <p className="mt-1 text-xs text-muted-foreground/60 text-right">
+                {deletionReason.length} / 500
+              </p>
+            </label>
+
             <div className="flex gap-2">
               <button
                 onClick={handleDeletionRequest}
@@ -100,7 +180,10 @@ export default function AttendeeSettingsPage() {
                 {deleteLoading ? "Submitting…" : "Yes, request deletion"}
               </button>
               <button
-                onClick={() => setShowDeleteConfirm(false)}
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setDeletionReason("");
+                }}
                 className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
               >
                 Cancel
