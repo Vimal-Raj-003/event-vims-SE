@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { useAttendeeProfile } from "@/lib/hooks/use-attendee";
+import { useToast } from "@/hooks/use-toast";
 
 const TABS = [
   {
@@ -57,9 +58,14 @@ const TABS = [
 export default function AttendeeLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { isAuthenticated, profileCompleted, activeEventId } = useAuthStore();
-  const { data: profile } = useAttendeeProfile();
-  const eventName = (profile as { event?: { name: string } } | null)?.event?.name ?? "VIMS Event";
+  const { isAuthenticated, profileCompleted, setProfileCompleted } = useAuthStore();
+  const { data: profile, isLoading: profileLoading } = useAttendeeProfile();
+  const profileWithMeta = profile as
+    | { event?: { name: string }; profileCompleted?: boolean }
+    | null
+    | undefined;
+  const eventName = profileWithMeta?.event?.name ?? "VIMS Event";
+  const apiProfileCompleted = profileWithMeta?.profileCompleted;
 
   useEffect(() => {
     const auth = localStorage.getItem("vims:auth");
@@ -69,11 +75,20 @@ export default function AttendeeLayout({ children }: { children: React.ReactNode
     }
   }, [router]);
 
+  // Sync API profileCompleted into the auth store (source of truth for guard).
   useEffect(() => {
-    if (isAuthenticated && !profileCompleted && !pathname.startsWith("/wizard")) {
+    if (typeof apiProfileCompleted === "boolean" && apiProfileCompleted !== profileCompleted) {
+      setProfileCompleted(apiProfileCompleted);
+    }
+  }, [apiProfileCompleted, profileCompleted, setProfileCompleted]);
+
+  useEffect(() => {
+    // Wait until profile fetch resolves so we don't bounce a completed user back to wizard.
+    if (profileLoading || apiProfileCompleted === undefined) return;
+    if (isAuthenticated && !apiProfileCompleted && !pathname.startsWith("/wizard")) {
       router.replace("/wizard");
     }
-  }, [isAuthenticated, profileCompleted, pathname, router]);
+  }, [isAuthenticated, apiProfileCompleted, profileLoading, pathname, router]);
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50">
@@ -129,6 +144,24 @@ export default function AttendeeLayout({ children }: { children: React.ReactNode
           })}
         </div>
       </nav>
+
+      <Toaster />
+    </div>
+  );
+}
+
+function Toaster() {
+  const toasts = useToast();
+  return (
+    <div className="fixed bottom-20 inset-x-0 flex flex-col items-center gap-2 z-50 pointer-events-none">
+      {toasts.map((t) => (
+        <div
+          key={t.id}
+          className="px-4 py-2 rounded-full bg-foreground text-background text-sm font-medium shadow-lg"
+        >
+          {t.message}
+        </div>
+      ))}
     </div>
   );
 }
