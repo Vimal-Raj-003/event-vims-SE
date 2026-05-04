@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode, type KeyboardEvent } from "react";
+import { useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 
 type Role = "organiser" | "attendee";
 
@@ -139,11 +139,30 @@ export function WhatYouGet() {
   const blocks = role === "organiser" ? ORGANISER_BLOCKS : ATTENDEE_BLOCKS;
   const accent = role === "organiser" ? "emerald" : "indigo";
 
-  const handleTabKey = (e: KeyboardEvent<HTMLButtonElement>) => {
-    if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-      e.preventDefault();
-      setRole(role === "organiser" ? "attendee" : "organiser");
-    }
+  const organiserDesktopRef = useRef<HTMLButtonElement>(null);
+  const attendeeDesktopRef = useRef<HTMLButtonElement>(null);
+  const organiserMobileRef = useRef<HTMLButtonElement>(null);
+  const attendeeMobileRef = useRef<HTMLButtonElement>(null);
+
+  const switchRoleByKey = (
+    e: KeyboardEvent<HTMLButtonElement>,
+    surface: "desktop" | "mobile",
+  ) => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    const newRole: Role = role === "organiser" ? "attendee" : "organiser";
+    setRole(newRole);
+    requestAnimationFrame(() => {
+      const targetRef =
+        surface === "desktop"
+          ? newRole === "organiser"
+            ? organiserDesktopRef
+            : attendeeDesktopRef
+          : newRole === "organiser"
+            ? organiserMobileRef
+            : attendeeMobileRef;
+      targetRef.current?.focus();
+    });
   };
 
   return (
@@ -172,12 +191,14 @@ export function WhatYouGet() {
           className="hidden sm:flex border-b border-white/[0.08] mt-12 mb-8"
         >
           <button
+            ref={organiserDesktopRef}
+            id="tab-organiser-d"
             role="tab"
             aria-selected={role === "organiser"}
             aria-controls="features-panel"
             tabIndex={role === "organiser" ? 0 : -1}
             onClick={() => setRole("organiser")}
-            onKeyDown={handleTabKey}
+            onKeyDown={(e) => switchRoleByKey(e, "desktop")}
             className={`px-4 pb-3 text-sm font-semibold transition-colors -mb-px border-b-2 ${
               role === "organiser"
                 ? "text-white border-emerald-400"
@@ -187,12 +208,14 @@ export function WhatYouGet() {
             For Organisers
           </button>
           <button
+            ref={attendeeDesktopRef}
+            id="tab-attendee-d"
             role="tab"
             aria-selected={role === "attendee"}
             aria-controls="features-panel"
             tabIndex={role === "attendee" ? 0 : -1}
             onClick={() => setRole("attendee")}
-            onKeyDown={handleTabKey}
+            onKeyDown={(e) => switchRoleByKey(e, "desktop")}
             className={`px-4 pb-3 text-sm font-semibold transition-colors -mb-px border-b-2 ${
               role === "attendee"
                 ? "text-white border-indigo-400"
@@ -205,10 +228,14 @@ export function WhatYouGet() {
 
         <div role="tablist" aria-label="Audience" className="sm:hidden flex gap-2 mt-12 mb-8">
           <button
+            ref={organiserMobileRef}
+            id="tab-organiser-m"
             role="tab"
             aria-selected={role === "organiser"}
             aria-controls="features-panel"
+            tabIndex={role === "organiser" ? 0 : -1}
             onClick={() => setRole("organiser")}
+            onKeyDown={(e) => switchRoleByKey(e, "mobile")}
             className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
               role === "organiser" ? "bg-emerald-500 text-slate-950" : "bg-white/5 text-white/60"
             }`}
@@ -216,10 +243,14 @@ export function WhatYouGet() {
             Organisers
           </button>
           <button
+            ref={attendeeMobileRef}
+            id="tab-attendee-m"
             role="tab"
             aria-selected={role === "attendee"}
             aria-controls="features-panel"
+            tabIndex={role === "attendee" ? 0 : -1}
             onClick={() => setRole("attendee")}
+            onKeyDown={(e) => switchRoleByKey(e, "mobile")}
             className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
               role === "attendee" ? "bg-indigo-500 text-white" : "bg-white/5 text-white/60"
             }`}
@@ -231,6 +262,7 @@ export function WhatYouGet() {
         <div
           id="features-panel"
           role="tabpanel"
+          aria-labelledby={`tab-${role}-d tab-${role}-m`}
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5"
         >
           {blocks.map((b) => (
