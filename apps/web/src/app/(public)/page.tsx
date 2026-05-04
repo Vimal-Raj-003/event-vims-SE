@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useEffect, type ReactNode } from "react";
 import Hero from "@/components/Hero";
 import { WhatYouGet } from "@/components/landing/WhatYouGet";
+import { PricingSimple } from "@/components/landing/PricingSimple";
 
 /* ─── Scroll-reveal hook ────────────────────────────────────────── */
 function useReveal() {
@@ -42,6 +43,7 @@ export default function LandingPage() {
     <div className="overflow-x-hidden">
       <Hero />
       <WhatYouGet />
+      <PricingSimple />
       <MissionBar />
       <HowItWorksSection />
       <FeaturesSection />
