@@ -8,14 +8,20 @@ export class MailService {
   private transporter: nodemailer.Transporter;
 
   constructor(private readonly configService: ConfigService) {
+    const secure = this.configService.get<string>('MAIL_USE_SSL', 'false') === 'true';
     this.transporter = nodemailer.createTransport({
       host: this.configService.get<string>('MAIL_SERVER', 'smtppro.zoho.in'),
-      port: Number(this.configService.get<string>('MAIL_PORT', '465')),
-      secure: this.configService.get<string>('MAIL_USE_SSL', 'true') === 'true',
+      port: Number(this.configService.get<string>('MAIL_PORT', '587')),
+      secure, // true = implicit TLS (465); false = STARTTLS upgrade (587)
+      requireTLS: !secure,
       auth: {
         user: this.configService.get<string>('MAIL_USERNAME'),
         pass: this.configService.get<string>('MAIL_PASSWORD'),
       },
+      // Fail fast instead of hanging the OTP request for ~12s on socket close.
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
     });
   }
 
@@ -25,19 +31,22 @@ export class MailService {
       await this.transporter.sendMail({
         from: `"VIMS Events" <${fromAddress}>`,
         to,
-        subject: `Your login code for ${eventName}`,
+        subject: `Your login code for ${this.escapeHtml(eventName)}`,
         html: this.otpTemplate(otp, eventName),
       });
       this.logger.log(`OTP email sent to ${to}`);
     } catch (error) {
-      this.logger.error(`Failed to send OTP email to ${to}: ${error.message}`);
+      this.logger.error(`Failed to send OTP email to ${to}: ${(error as Error).message}`);
+      // Rethrow so callers (OTP request flow) can surface a real failure to the user
+      // instead of returning a misleading 200 success.
+      throw error;
     }
   }
 
   async sendVerificationEmail(to: string, token: string): Promise<void> {
     const fromAddress = this.configService.get<string>('MAIL_USERNAME');
     const frontendUrl = this.configService.get<string>('NEXT_PUBLIC_APP_URL', 'http://localhost:3000');
-    const verifyUrl = `${frontendUrl}/auth/organiser/verify?token=${token}`;
+    const verifyUrl = `${frontendUrl}/auth/organiser/verify?token=${encodeURIComponent(token)}`;
     try {
       await this.transporter.sendMail({
         from: `"VIMS Events" <${fromAddress}>`,
@@ -47,7 +56,45 @@ export class MailService {
       });
       this.logger.log(`Verification email sent to ${to}`);
     } catch (error) {
-      this.logger.error(`Failed to send verification email to ${to}: ${error.message}`);
+      this.logger.error(`Failed to send verification email to ${to}: ${(error as Error).message}`);
+      throw error;
+    }
+  }
+
+  async sendInviteEmail(
+    to: string,
+    firstName: string,
+    eventName: string,
+    loginLink: string,
+  ): Promise<void> {
+    const fromAddress = this.configService.get<string>('MAIL_USERNAME');
+    const safeName = this.escapeHtml(firstName);
+    const safeEvent = this.escapeHtml(eventName);
+    const html = `
+      <p>Hi ${safeName},</p>
+      <p>You've been invited to <b>${safeEvent}</b>. Open your digital business card and start connecting with attendees:</p>
+      <p>
+        <a href="${loginLink}" style="display:inline-block;padding:12px 24px;background:#4f46e5;color:white;border-radius:8px;text-decoration:none;font-weight:600;">
+          Open your business card →
+        </a>
+      </p>
+      <p>If the button doesn't work, paste this link into your browser:<br>
+      <span style="color:#64748b;">${loginLink}</span></p>
+      <p style="color:#64748b;font-size:12px;">— The ${safeEvent} organising team</p>
+    `;
+    try {
+      await this.transporter.sendMail({
+        from: `"VIMS Events" <${fromAddress}>`,
+        to,
+        subject: `You're invited to ${eventName}`,
+        html,
+      });
+      this.logger.log(`Invite email sent to ${to} for ${eventName}`);
+    } catch (error) {
+      this.logger.error(
+        `Failed to send invite email to ${to}: ${(error as Error).message}`,
+      );
+      throw error;
     }
   }
 
@@ -57,16 +104,29 @@ export class MailService {
       await this.transporter.sendMail({
         from: `"VIMS Events" <${fromAddress}>`,
         to,
-        subject: `Welcome to ${eventName}!`,
+        subject: `Welcome to ${this.escapeHtml(eventName)}!`,
         html: this.welcomeTemplate(name, eventName),
       });
       this.logger.log(`Welcome email sent to ${to}`);
     } catch (error) {
-      this.logger.error(`Failed to send welcome email to ${to}: ${error.message}`);
+      this.logger.error(`Failed to send welcome email to ${to}: ${(error as Error).message}`);
+      throw error;
     }
   }
 
+  // Escape HTML special chars before interpolating user-controlled values into templates.
+  private escapeHtml(value: string): string {
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   private otpTemplate(otp: string, eventName: string): string {
+    const safeEvent = this.escapeHtml(eventName);
+    const safeOtp = this.escapeHtml(otp);
     return `
       <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
         <div style="text-align: center; margin-bottom: 24px;">
@@ -75,10 +135,10 @@ export class MailService {
         </div>
         <div style="background: #f8fafc; border-radius: 12px; padding: 24px; text-align: center;">
           <p style="color: #334155; font-size: 15px; margin: 0 0 16px 0;">
-            Use this code to join <strong>${eventName}</strong>:
+            Use this code to join <strong>${safeEvent}</strong>:
           </p>
           <div style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #6366f1; margin: 16px 0;">
-            ${otp}
+            ${safeOtp}
           </div>
           <p style="color: #94a3b8; font-size: 13px; margin: 16px 0 0 0;">
             This code expires in 5 minutes. If you didn't request this, ignore this email.
@@ -114,17 +174,19 @@ export class MailService {
   }
 
   private welcomeTemplate(name: string, eventName: string): string {
+    const safeName = this.escapeHtml(name);
+    const safeEvent = this.escapeHtml(eventName);
     return `
       <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
         <div style="text-align: center; margin-bottom: 24px;">
-          <h2 style="color: #6366f1; margin: 0;">Welcome to ${eventName}!</h2>
+          <h2 style="color: #6366f1; margin: 0;">Welcome to ${safeEvent}!</h2>
         </div>
         <div style="background: #f8fafc; border-radius: 12px; padding: 24px;">
           <p style="color: #334155; font-size: 15px; margin: 0 0 12px 0;">
-            Hi ${name},
+            Hi ${safeName},
           </p>
           <p style="color: #334155; font-size: 15px; margin: 0 0 12px 0;">
-            You're all set! Start networking with other attendees at <strong>${eventName}</strong>.
+            You're all set! Start networking with other attendees at <strong>${safeEvent}</strong>.
           </p>
           <p style="color: #64748b; font-size: 14px; margin: 12px 0 0 0;">
             Complete your profile to get better networking suggestions and connect with the right people.

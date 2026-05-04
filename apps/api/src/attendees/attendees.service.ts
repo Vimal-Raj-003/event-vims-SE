@@ -6,11 +6,14 @@ import {
   BadRequestException,
   Logger,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { ClsService } from 'nestjs-cls';
 import { ConnectionStatus, EventStatus } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import type { CurrentUserData } from '../auth/decorators/current-user.decorator';
+import { MailService } from '../mail/mail.service';
+import type { InviteAttendeeDto } from './dto/invite-attendee.dto';
 
 const ORGANISER_LIST_SELECT = {
   id: true,
@@ -57,6 +60,8 @@ export class AttendeesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly cls: ClsService,
+    private readonly mailService: MailService,
+    private readonly configService: ConfigService,
   ) {}
 
   // ──────────────────────────────────────────────
@@ -802,6 +807,95 @@ export class AttendeesService {
       profilePhotoUrl: target.profilePhotoUrl,
       companyLogoUrl: target.companyLogoUrl,
       connectionStatus: null,
+    };
+  }
+
+  // ──────────────────────────────────────────────
+  // Invite Attendee (Organiser)
+  // ──────────────────────────────────────────────
+
+  async inviteAttendee(
+    eventId: string,
+    organiserId: string,
+    dto: InviteAttendeeDto,
+  ) {
+    const event = await this.prisma.event.findUnique({
+      where: { id: eventId },
+    });
+
+    if (!event || event.status === EventStatus.DELETED) {
+      throw new NotFoundException('Event not found');
+    }
+
+    if (event.organiserId !== organiserId) {
+      throw new ForbiddenException('You do not own this event');
+    }
+
+    const existing = await this.prisma.attendee.findFirst({
+      where: {
+        eventId,
+        email: { equals: dto.email, mode: 'insensitive' },
+      },
+    });
+
+    if (existing) {
+      throw new ConflictException(
+        'This email is already registered for this event.',
+      );
+    }
+
+    const attendee = await this.prisma.attendee.create({
+      data: {
+        eventId,
+        email: dto.email,
+        firstName: dto.firstName,
+        lastName: '',
+        phone: '',
+        designation: '',
+        company: '',
+        businessType: '',
+        industry: '',
+        city: '',
+        profileCompleted: false,
+        consentGiven: true,
+        consentedAt: new Date(),
+      },
+    });
+
+    const baseUrl = this.configService.get<string>(
+      'NEXT_PUBLIC_APP_URL',
+      'http://localhost:3000',
+    );
+    const loginLink = `${baseUrl}/auth/attendee/login?email=${encodeURIComponent(dto.email)}&eventId=${eventId}`;
+
+    try {
+      await this.mailService.sendInviteEmail(
+        dto.email,
+        dto.firstName,
+        event.name,
+        loginLink,
+      );
+    } catch (err) {
+      this.logger.warn(
+        `Invite mail failed for ${dto.email}: ${(err as Error).message}`,
+      );
+    }
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorRole: 'organiser',
+        actorId: organiserId,
+        action: 'ATTENDEE_INVITED',
+        entityType: 'Attendee',
+        entityId: attendee.id,
+        metadata: { invitedEmail: dto.email, eventId } as Prisma.InputJsonValue,
+      },
+    });
+
+    return {
+      attendeeId: attendee.id,
+      email: attendee.email,
+      firstName: attendee.firstName,
     };
   }
 }

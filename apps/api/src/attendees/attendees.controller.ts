@@ -20,6 +20,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { CurrentUserData } from '../auth/decorators/current-user.decorator';
+import { InviteAttendeeDto } from './dto/invite-attendee.dto';
 
 // ──────────────────────────────────────────────
 // DTOs
@@ -117,6 +118,22 @@ export class AttendeesController {
       pageSize ? parseInt(pageSize, 10) : 50,
       search,
     );
+  }
+
+  // ──────────────────────────────────────────────
+  // ORGANISER: Invite Attendee
+  // ──────────────────────────────────────────────
+
+  @Post('events/:eventId/invite-attendee')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ORGANISER')
+  @HttpCode(HttpStatus.CREATED)
+  async inviteAttendee(
+    @Param('eventId') eventId: string,
+    @CurrentUser() user: CurrentUserData,
+    @Body() dto: InviteAttendeeDto,
+  ) {
+    return this.attendeesService.inviteAttendee(eventId, user.organiserId!, dto);
   }
 
   // ──────────────────────────────────────────────
