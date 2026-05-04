@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "node_modules/.bin/nest.cmd start --watch",
+    "dev": "npx nest start --watch",
     "build": "nest build",
     "start": "node dist/main",
     "start:prod": "node dist/main",
@@ -16,6 +16,9 @@
     "db:migrate:dev": "prisma migrate dev",
     "db:seed": "npx tsx prisma/seed.ts",
     "db:studio": "prisma studio"
+  },
+  "prisma": {
+    "seed": "npx tsx prisma/seed.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
@@ -35,6 +38,7 @@
     "helmet": "^8.1.0",
     "nestjs-cls": "^5.0.0",
     "nestjs-pino": "^4.6.1",
+    "nodemailer": "^8.0.7",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pino": "^9.14.0",
@@ -56,6 +60,7 @@
     "@types/compression": "^1.7.5",
     "@types/express": "^5.0.0",
     "@types/multer": "^1.4.12",
+    "@types/nodemailer": "^8.0.0",
     "@types/passport-jwt": "^4.0.1",
     "@types/qrcode": "^1.5.5",
     "@types/web-push": "^3.6.4",

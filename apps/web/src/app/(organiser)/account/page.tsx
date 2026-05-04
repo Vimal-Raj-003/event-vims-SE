@@ -19,6 +19,10 @@ interface Profile {
 }
 
 interface Settings {
+  id: string;
+  organiserId: string;
+  createdAt: string;
+  updatedAt: string;
   defaultBrandPrimary: string;
   defaultBrandSecondary: string;
   defaultMaxConnections: string;
