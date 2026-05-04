@@ -1,22 +1,37 @@
+"use client";
+
 import Link from "next/link";
+import { useScrollReveal } from "@/hooks/use-scroll-reveal";
 
 export function FinalCTA() {
+  const { ref, revealed } = useScrollReveal<HTMLDivElement>();
+
   return (
-    <section className="relative bg-dark-section py-24 lg:py-32 overflow-hidden">
-      <div className="relative mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 text-center">
-        <span className="inline-block rounded-full bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.15em] text-emerald-400 mb-4">
+    <section className="relative bg-white py-24 lg:py-32 overflow-hidden">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -bottom-32 -right-20 h-[420px] w-[420px] rounded-full bg-emerald-200/25 blur-[120px]"
+      />
+
+      <div
+        ref={ref}
+        className={`relative mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 text-center transition-all duration-700 ease-out ${
+          revealed ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"
+        }`}
+      >
+        <span className="inline-block rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.15em] text-emerald-700 mb-4">
           Get started
         </span>
-        <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight leading-[1.1] text-balance mb-5">
+        <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 tracking-tight leading-[1.1] text-balance mb-5">
           Ready to transform your event networking?
         </h2>
-        <p className="text-base sm:text-lg text-white/55 leading-relaxed max-w-2xl mx-auto">
+        <p className="text-base sm:text-lg text-slate-600 leading-relaxed max-w-2xl mx-auto">
           Be among the first to use VIMS Events. Set up your first event in under five minutes — completely free during beta.
         </p>
         <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">
           <Link
             href="/auth/organiser/signup"
-            className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold rounded-xl px-7 py-3.5 text-base transition-colors"
+            className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-xl px-7 py-3.5 text-base shadow-sm hover:shadow transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
           >
             Create Your First Event
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -25,7 +40,7 @@ export function FinalCTA() {
           </Link>
           <Link
             href="/auth/attendee/login"
-            className="inline-flex items-center bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl px-7 py-3.5 text-base transition-colors"
+            className="inline-flex items-center bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 font-semibold rounded-xl px-7 py-3.5 text-base transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
           >
             Attendee? Join Event
           </Link>
