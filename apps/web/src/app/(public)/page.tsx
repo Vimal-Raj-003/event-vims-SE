@@ -6,6 +6,7 @@ import { useEffect, type ReactNode } from "react";
 import Hero from "@/components/Hero";
 import { WhatYouGet } from "@/components/landing/WhatYouGet";
 import { PricingSimple } from "@/components/landing/PricingSimple";
+import { FinalCTA } from "@/components/landing/FinalCTA";
 
 /* ─── Scroll-reveal hook ────────────────────────────────────────── */
 function useReveal() {
@@ -44,6 +45,7 @@ export default function LandingPage() {
       <Hero />
       <WhatYouGet />
       <PricingSimple />
+      <FinalCTA />
       <MissionBar />
       <HowItWorksSection />
       <FeaturesSection />
