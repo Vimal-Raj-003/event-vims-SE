@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { apiClient } from "@/lib/api-client";
 
@@ -89,7 +90,11 @@ export default function DirectoryPage() {
       ) : (
         <div className="grid gap-3">
           {attendees.map((a) => (
-            <div key={a.id} className="flex items-center gap-3 rounded-2xl border border-border bg-white dark:bg-card p-3 hover:shadow-md hover:-translate-y-0.5 transition-all">
+            <Link
+              key={a.id}
+              href={`/profile/${a.id}?from=directory`}
+              className="flex items-center gap-3 rounded-2xl border border-border bg-white dark:bg-card p-3 hover:shadow-md hover:-translate-y-0.5 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            >
               {a.profilePhotoUrl ? (
                 <img src={a.profilePhotoUrl} alt={a.firstName} className="h-11 w-11 rounded-full object-cover shrink-0" />
               ) : (
@@ -102,7 +107,7 @@ export default function DirectoryPage() {
                 <p className="text-xs text-muted-foreground truncate">{a.designation} · {a.company}</p>
               </div>
               <span className="shrink-0 text-[10px] text-muted-foreground bg-muted rounded-lg px-2 py-1">{a.industry}</span>
-            </div>
+            </Link>
           ))}
         </div>
       )}

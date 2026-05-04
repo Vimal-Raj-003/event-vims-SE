@@ -51,7 +51,7 @@ export function SuggestionCard({ attendee, score, reasons }: SuggestionCardProps
     <div className="rounded-xl border border-border bg-white p-4 transition-all hover:shadow-md">
       <div className="flex items-start gap-3">
         {/* Avatar */}
-        <Link href={`/profile/${attendee.id}`}>
+        <Link href={`/profile/${attendee.id}?from=suggestions`}>
           <div className="relative flex-shrink-0">
             {attendee.profilePhotoUrl ? (
               <img
@@ -73,7 +73,7 @@ export function SuggestionCard({ attendee, score, reasons }: SuggestionCardProps
 
         {/* Info */}
         <div className="min-w-0 flex-1">
-          <Link href={`/profile/${attendee.id}`}>
+          <Link href={`/profile/${attendee.id}?from=suggestions`}>
             <h3 className="text-sm font-semibold text-foreground hover:text-primary transition-colors">
               {attendee.firstName} {attendee.lastName}
             </h3>
