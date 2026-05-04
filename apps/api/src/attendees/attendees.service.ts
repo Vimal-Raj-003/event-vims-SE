@@ -10,6 +10,45 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ClsService } from 'nestjs-cls';
 import { ConnectionStatus, EventStatus } from '@prisma/client';
 import { Prisma } from '@prisma/client';
+import type { CurrentUserData } from '../auth/decorators/current-user.decorator';
+
+const ORGANISER_LIST_SELECT = {
+  id: true,
+  firstName: true,
+  lastName: true,
+  email: true,
+  phone: true,
+  designation: true,
+  company: true,
+  businessType: true,
+  industry: true,
+  services: true,
+  tags: true,
+  city: true,
+  profilePhotoUrl: true,
+  companyLogoUrl: true,
+  registeredAt: true,
+} as const;
+
+const ATTENDEE_LIST_SELECT = {
+  id: true,
+  firstName: true,
+  lastName: true,
+  designation: true,
+  company: true,
+  businessType: true,
+  industry: true,
+  services: true,
+  tags: true,
+  city: true,
+  profilePhotoUrl: true,
+  companyLogoUrl: true,
+  interestedIn: true,
+  networkingGoals: true,
+  linkedinUrl: true,
+  websiteUrl: true,
+  twitterHandle: true,
+} as const;
 
 @Injectable()
 export class AttendeesService {
@@ -121,12 +160,11 @@ export class AttendeesService {
 
   async findAll(
     eventId: string,
-    organiserId: string,
+    user: CurrentUserData,
     page: number = 1,
     pageSize: number = 50,
     search?: string,
   ) {
-    // Verify event ownership
     const event = await this.prisma.event.findUnique({
       where: { id: eventId },
     });
@@ -135,13 +173,30 @@ export class AttendeesService {
       throw new NotFoundException('Event not found');
     }
 
-    if (event.organiserId !== organiserId) {
-      throw new ForbiddenException('You do not own this event');
+    const isAttendee = user.role === 'attendee';
+
+    if (!isAttendee) {
+      if (event.organiserId !== user.organiserId) {
+        throw new ForbiddenException('You do not own this event');
+      }
+    } else {
+      const callerAttendee = await this.prisma.attendee.findUnique({
+        where: { id: user.sub },
+      });
+      if (!callerAttendee || callerAttendee.eventId !== eventId) {
+        throw new ForbiddenException(
+          'You can only view attendees of your own event',
+        );
+      }
     }
 
     const skip = (page - 1) * pageSize;
 
     const where: Prisma.AttendeeWhereInput = { eventId };
+
+    if (isAttendee) {
+      where.id = { not: user.sub };
+    }
 
     if (search) {
       const searchTerm = search.trim();
@@ -152,33 +207,20 @@ export class AttendeesService {
       ];
     }
 
+    const select = isAttendee ? ATTENDEE_LIST_SELECT : ORGANISER_LIST_SELECT;
+
     const [attendees, total] = await Promise.all([
       this.prisma.attendee.findMany({
         where,
         skip,
         take: pageSize,
         orderBy: { registeredAt: 'desc' },
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          email: true,
-          phone: true,
-          designation: true,
-          company: true,
-          businessType: true,
-          industry: true,
-          city: true,
-          companySize: true,
-          profilePhotoUrl: true,
-          companyLogoUrl: true,
-          registeredAt: true,
-          lastActiveAt: true,
-          isPaused: true,
-        },
+        select,
       }),
       this.prisma.attendee.count({ where }),
     ]);
+
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
     return {
       data: attendees,
@@ -186,7 +228,7 @@ export class AttendeesService {
         page,
         pageSize,
         total,
-        totalPages: Math.ceil(total / pageSize),
+        totalPages,
       },
     };
   }
@@ -234,6 +276,7 @@ export class AttendeesService {
       registeredAt: attendee.registeredAt,
       lastActiveAt: attendee.lastActiveAt,
       isPaused: attendee.isPaused,
+      profileCompleted: attendee.profileCompleted,
       event: attendee.event,
     };
   }
@@ -513,6 +556,9 @@ export class AttendeesService {
       completedSteps,
       completenessPercent: Math.round((filled / total) * 100),
       missingFields,
+      profileViewCount: attendee.profileViewCount ?? 0,
+      cardShareCount: attendee.cardShareCount ?? 0,
+      qrScanCount: attendee.qrScanCount ?? 0,
     };
   }
 
@@ -684,7 +730,7 @@ export class AttendeesService {
     }
 
     if (requester && requester.eventId === target.eventId) {
-      const connection = await this.prisma.connectionRequest.findFirst({
+      const accepted = await this.prisma.connectionRequest.findFirst({
         where: {
           eventId: target.eventId,
           status: ConnectionStatus.ACCEPTED,
@@ -694,6 +740,32 @@ export class AttendeesService {
           ],
         },
       });
+
+      let connectionStatus:
+        | 'ACCEPTED'
+        | 'PENDING_SENT'
+        | 'PENDING_RECEIVED'
+        | null = accepted ? 'ACCEPTED' : null;
+
+      if (!accepted) {
+        const pending = await this.prisma.connectionRequest.findFirst({
+          where: {
+            eventId: target.eventId,
+            status: ConnectionStatus.PENDING,
+            OR: [
+              { senderId: requesterId, receiverId: targetId },
+              { senderId: targetId, receiverId: requesterId },
+            ],
+          },
+          select: { senderId: true },
+        });
+        if (pending) {
+          connectionStatus =
+            pending.senderId === requesterId
+              ? 'PENDING_SENT'
+              : 'PENDING_RECEIVED';
+        }
+      }
 
       return {
         id: target.id,
@@ -713,7 +785,7 @@ export class AttendeesService {
         linkedinUrl: target.linkedinUrl,
         websiteUrl: target.websiteUrl,
         twitterHandle: target.twitterHandle,
-        connectionStatus: connection ? 'ACCEPTED' : null,
+        connectionStatus,
       };
     }
 

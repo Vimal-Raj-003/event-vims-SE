@@ -13,7 +13,7 @@ import {
   SetMetadata,
 } from '@nestjs/common';
 import { Response } from 'express';
-import { IsString, IsEmail, IsBoolean, IsOptional, IsNotEmpty, IsInt, IsNumber, ValidateIf } from 'class-validator';
+import { IsString, IsEmail, IsBoolean, IsOptional, IsNotEmpty, IsInt, IsNumber, IsObject, ValidateIf } from 'class-validator';
 import { AttendeesService } from './attendees.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -63,7 +63,7 @@ class UpdateAttendeeProfileDto {
 
 class WizardStepDto {
   @IsInt() step: 1 | 2 | 3 | 4;
-  data: Record<string, unknown>;
+  @IsObject() data: Record<string, unknown>;
 }
 
 class TrackCardShareDto {
@@ -102,7 +102,7 @@ export class AttendeesController {
 
   @Get('events/:eventId/attendees')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ORGANISER')
+  @Roles('ORGANISER', 'ATTENDEE')
   async findAll(
     @Param('eventId') eventId: string,
     @CurrentUser() user: CurrentUserData,
@@ -112,7 +112,7 @@ export class AttendeesController {
   ) {
     return this.attendeesService.findAll(
       eventId,
-      user.organiserId!,
+      user,
       page ? parseInt(page, 10) : 1,
       pageSize ? parseInt(pageSize, 10) : 50,
       search,
