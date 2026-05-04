@@ -47,7 +47,7 @@ export class AdminService {
       this.prisma.organiser.count(),
       this.prisma.event.count(),
       this.prisma.attendee.count(),
-      this.prisma.connectionRequest.count(),
+      this.prisma.connectionRequest.count({ where: { status: 'ACCEPTED' } }),
       this.prisma.event.count({
         where: {
           status: 'PUBLISHED',
