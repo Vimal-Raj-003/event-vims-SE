@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: "standalone",
   reactStrictMode: true,
   images: {
     remotePatterns: [
@@ -28,8 +29,8 @@ const nextConfig = {
               "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
-              "img-src 'self' data: blob: https: http://localhost:4000 https://api.se.vimsenterprise.com",
-              "connect-src 'self' http://localhost:3001 http://localhost:4000 https://api.vims.events wss://api.vims.events https://api.se.vimsenterprise.com wss://api.se.vimsenterprise.com",
+              "img-src 'self' data: blob: https: http://localhost:4000",
+              "connect-src 'self' http://localhost:3001 http://localhost:4000 https://api.vims.events wss://api.vims.events",
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",

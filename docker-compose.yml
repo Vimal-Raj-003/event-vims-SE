@@ -1,0 +1,66 @@
+name: vimsse
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: vimsse-api
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4010:4000"
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL_DIRECT: ${DATABASE_URL_DIRECT}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_ACCESS_EXPIRY: 15m
+      JWT_REFRESH_EXPIRY: 7d
+      MAIL_SERVER: ${MAIL_SERVER}
+      MAIL_PORT: ${MAIL_PORT}
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      MAIL_USE_SSL: ${MAIL_USE_SSL}
+      EMAIL_FROM_ADDRESS: noreply@vimsenterprise.com
+      EMAIL_FROM_NAME: VIMS Events
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
+      R2_BUCKET_NAME: ${R2_BUCKET_NAME}
+      R2_PUBLIC_URL: ${R2_PUBLIC_URL}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
+      VAPID_SUBJECT: mailto:admin@vimsenterprise.com
+      CORS_ORIGIN: https://se.vimsenterprise.com
+      LOG_LEVEL: info
+    volumes:
+      - vimsse_uploads:/app/apps/api/uploads
+    networks:
+      - vimsse_net
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: https://se.vimsenterprise.com/api/v1
+    container_name: vimsse-web
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3010:3000"
+    depends_on:
+      - api
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: https://se.vimsenterprise.com/api/v1
+    networks:
+      - vimsse_net
+
+volumes:
+  vimsse_uploads:
+
+networks:
+  vimsse_net:
+    driver: bridge

@@ -1,0 +1,108 @@
+name: Deploy to VPS (se.vimsenterprise.com)
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, vimsse]
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Write .env from secrets
+        run: |
+          cat > .env <<EOF
+          DATABASE_URL=${{ secrets.DATABASE_URL }}
+          DATABASE_URL_DIRECT=${{ secrets.DATABASE_URL_DIRECT }}
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}
+          MAIL_SERVER=${{ secrets.MAIL_SERVER }}
+          MAIL_PORT=${{ secrets.MAIL_PORT }}
+          MAIL_USERNAME=${{ secrets.MAIL_USERNAME }}
+          MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }}
+          MAIL_USE_SSL=${{ secrets.MAIL_USE_SSL }}
+          R2_ACCOUNT_ID=${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID=${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET_NAME=${{ secrets.R2_BUCKET_NAME }}
+          R2_PUBLIC_URL=${{ secrets.R2_PUBLIC_URL }}
+          VAPID_PUBLIC_KEY=${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY=${{ secrets.VAPID_PRIVATE_KEY }}
+          EOF
+          chmod 600 .env
+
+      - name: Tag images for rollback
+        id: tagimg
+        run: |
+          SHA=$(git rev-parse --short HEAD)
+          echo "sha=$SHA" >> $GITHUB_OUTPUT
+
+      - name: Build & restart containers
+        run: |
+          docker compose down --remove-orphans
+          docker compose up -d --build
+          docker compose ps
+
+      - name: Wait for API health
+        run: |
+          for i in {1..30}; do
+            if curl -fs http://localhost:4010/api/v1/health > /dev/null; then
+              echo "API healthy after $((i*10)) seconds"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "API never became healthy"
+          docker compose logs api --tail 100
+          exit 1
+
+      - name: Run Prisma migrations (with baseline-adoption fallback)
+        run: |
+          set -e
+          set +e
+          docker compose exec -T api npx prisma migrate deploy 2>&1 | tee /tmp/migrate.log
+          STATUS=${PIPESTATUS[0]}
+          set -e
+          if [ "$STATUS" -ne 0 ]; then
+            if grep -qE "P3005|P3009" /tmp/migrate.log; then
+              BASELINE=$(docker compose exec -T api sh -c "ls prisma/migrations | grep _init | head -1" | tr -d '\r\n')
+              if [ -n "$BASELINE" ]; then
+                echo "Adopting baseline migration $BASELINE as already-applied..."
+                docker compose exec -T api npx prisma migrate resolve --applied "$BASELINE"
+                docker compose exec -T api npx prisma migrate deploy
+              else
+                echo "No _init baseline migration found to resolve — failing."
+                exit 1
+              fi
+            else
+              echo "Migration failed for an unrecognized reason. See /tmp/migrate.log"
+              exit 1
+            fi
+          fi
+
+      - name: Tag images with commit SHA (for rollback)
+        run: |
+          docker tag vimsse-api:latest vimsse-api:${{ steps.tagimg.outputs.sha }} || true
+          docker tag vimsse-web:latest vimsse-web:${{ steps.tagimg.outputs.sha }} || true
+
+      - name: Verify web is responding
+        run: curl -f http://localhost:3010/ -o /dev/null
+
+      - name: Cleanup unused images (keep last 3 tagged)
+        run: |
+          docker image prune -f
+          for service in vimsse-api vimsse-web; do
+            docker images "$service" --format '{{.Repository}}:{{.Tag}} {{.CreatedAt}}' \
+              | grep -v ':latest' | sort -k2 -r | tail -n +4 \
+              | awk '{print $1}' | xargs -r docker rmi -f || true
+          done
+
+      - name: Summary
+        run: |
+          echo "Deployment complete: ${{ steps.tagimg.outputs.sha }}"
+          echo "  -> https://se.vimsenterprise.com"
+          docker compose ps
