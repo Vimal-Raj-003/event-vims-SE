@@ -61,7 +61,10 @@ export default function AttendeeProfilePage({
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [errored, setErrored] = useState(false);
+  const [notFoundFlag, setNotFoundFlag] = useState(false);
   const viewTracked = useRef(false);
+
+  if (notFoundFlag) notFound();
 
   useEffect(() => {
     let cancelled = false;
@@ -76,7 +79,7 @@ export default function AttendeeProfilePage({
         const status = (err as { status?: number; response?: { status?: number } })
           ?.status ?? (err as { response?: { status?: number } })?.response?.status;
         if (!cancelled) {
-          if (status === 404 || status === 403) notFound();
+          if (status === 404 || status === 403) setNotFoundFlag(true);
           else setErrored(true);
         }
       })
