@@ -41,13 +41,12 @@ async function main() {
   console.log('Seeding database…\n');
 
   // ─── 1. Super Admin ───────────────────────────────────────────────────
-  const adminHash = await bcrypt.hash('Admin@2026', 12);
-  const superAdmin = await prisma.superAdmin.upsert({
-    where: { email: 'admin@vims-enterprise.com' },
-    update: {},
-    create: { email: 'admin@vims-enterprise.com', passwordHash: adminHash, name: 'Gowthamraj M', mfaEnabled: false },
-  });
-  console.log('Super Admin:', superAdmin.email);
+  // Super-admin credentials are NOT seeded by this file. They are managed
+  // explicitly via the `db:set-super-admin` script (see prisma/set-super-admin.ts)
+  // so credentials never live in committed code. If no super admin exists,
+  // run:  SUPERADMIN_EMAIL=... SUPERADMIN_PASSWORD=... npm run db:set-super-admin
+  const existingAdmins = await prisma.superAdmin.count();
+  console.log(`Super admins in DB: ${existingAdmins} (managed via db:set-super-admin)`);
 
   // ─── 2. Two Test Organisers ───────────────────────────────────────────
   const orgHash = await bcrypt.hash('Organiser@2026', 12);
@@ -253,7 +252,7 @@ async function main() {
   console.log('\n══════════════════════════════════════════════════════');
   console.log('  SEED COMPLETE');
   console.log('══════════════════════════════════════════════════════');
-  console.log(`  Super Admin:  admin@vims-enterprise.com / Admin@2026`);
+  console.log(`  Super Admin:  managed via db:set-super-admin (not seeded)`);
   console.log(`  Organiser 1:  testorganiser@example.com / Organiser@2026`);
   console.log(`  Organiser 2:  rahul.events@startupfund.io / Organiser@2026`);
   console.log(`  Events:       5 (3 by org1, 2 by org2)`);
