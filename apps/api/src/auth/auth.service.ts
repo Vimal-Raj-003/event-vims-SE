@@ -3,6 +3,7 @@ import {
   UnauthorizedException,
   ConflictException,
   BadRequestException,
+  ForbiddenException,
   Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -10,6 +11,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { ClsService } from 'nestjs-cls';
 import { MailService } from '../mail/mail.service';
+import { PlatformSettingsService } from '../admin/platform-settings.service';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 
@@ -38,6 +40,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly cls: ClsService,
     private readonly mailService: MailService,
+    private readonly platformSettings: PlatformSettingsService,
   ) {}
 
   // ──────────────────────────────────────────────
@@ -51,6 +54,16 @@ export class AuthService {
     organisation: string;
     mobile: string;
   }) {
+    // Gate self-signup behind the platform setting. Check this BEFORE the
+    // email-existence lookup so we don't tell strangers whether their email
+    // is already registered when self-signup is disabled.
+    const settings = await this.platformSettings.get();
+    if (!settings.allowOrganiserSelfSignup) {
+      throw new ForbiddenException(
+        'Self-signup is currently disabled. Please contact the platform administrator.',
+      );
+    }
+
     const existing = await this.prisma.organiser.findUnique({
       where: { email: dto.email.toLowerCase() },
     });
