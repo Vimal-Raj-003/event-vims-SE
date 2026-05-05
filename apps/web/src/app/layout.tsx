@@ -1,46 +1,14 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
-import { cache } from "react";
 import { Providers } from "@/lib/query-client";
 import { ThemeProvider } from "@/components/theme-provider";
+import { fetchPublicSettings } from "@/lib/public-settings";
 import "./globals.css";
 
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
   display: "swap",
-});
-
-interface PublicSettings {
-  platformName: string;
-  supportEmail: string;
-  selfSignupEnabled: boolean;
-}
-
-const PUBLIC_SETTINGS_FALLBACK: PublicSettings = {
-  platformName: "VIMS Events",
-  supportEmail: "admin@vimsenterprise.com",
-  selfSignupEnabled: true,
-};
-
-/**
- * Server-side fetch of public platform settings. Memoized with react.cache()
- * so multiple consumers within a single request share one fetch. Revalidated
- * every 60s by Next so platform-name updates propagate within a minute.
- * Falls back to a hardcoded value if the API is unreachable.
- */
-const fetchPublicSettings = cache(async (): Promise<PublicSettings> => {
-  try {
-    const apiUrl =
-      process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
-    const res = await fetch(`${apiUrl}/public/settings`, {
-      next: { revalidate: 60 },
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return (await res.json()) as PublicSettings;
-  } catch {
-    return PUBLIC_SETTINGS_FALLBACK;
-  }
 });
 
 export async function generateMetadata(): Promise<Metadata> {
