@@ -129,13 +129,6 @@ function OrganiserLoginContent() {
         </button>
       </form>
 
-      {process.env.NODE_ENV === "development" && (
-        <div className="mt-4 rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3">
-          <p className="text-xs font-semibold text-amber-700">Dev mode — test credentials</p>
-          <p className="text-xs text-amber-900 mt-0.5 font-mono">testorganiser@example.com · Organiser@2026</p>
-        </div>
-      )}
-
       {/* Attendee login CTA */}
       <Link
         href="/auth/attendee/login"

@@ -121,14 +121,6 @@ export default function AttendeeLoginPage() {
         </button>
       </form>
 
-      {process.env.NODE_ENV === "development" && (
-        <div className="mt-4 rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3">
-          <p className="text-xs font-semibold text-amber-700">Dev mode — test credentials</p>
-          <p className="text-xs text-amber-900 mt-0.5 font-mono">rahul.krishnan@gmail.com</p>
-          <p className="text-xs text-amber-900 font-mono">Event ID: cmoj5g67h0003n628x95wm4a9</p>
-        </div>
-      )}
-
       <p className="mt-6 text-center text-sm text-muted-foreground">
         Are you an organiser?{" "}
         <Link href="/auth/organiser/login" className="font-semibold text-primary hover:text-primary-600 transition-colors">

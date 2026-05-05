@@ -109,13 +109,6 @@ function AttendeeVerifyContent() {
         </p>
       </div>
 
-      {isDev && devOtpParam && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-center">
-          <p className="text-xs font-semibold text-amber-700">Dev mode — OTP auto-filled</p>
-          <p className="text-lg font-mono font-bold text-amber-900 tracking-widest mt-0.5">{devOtpParam}</p>
-        </div>
-      )}
-
       <form onSubmit={handleVerify} className="space-y-6">
         <div className="flex justify-center gap-3">
           {otp.map((digit, idx) => (
