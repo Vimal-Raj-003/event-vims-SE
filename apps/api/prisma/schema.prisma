@@ -325,6 +325,21 @@ model OrganiserSettings {
   @@map("organiser_settings")
 }
 
+model PlatformSettings {
+  id                       String   @id @default("platform")
+  platformName             String   @default("VIMS Event Networking") @map("platform_name")
+  supportEmail             String   @default("admin@vimsenterprise.com") @map("support_email")
+  dataRetentionMonths      Int      @default(12) @map("data_retention_months")
+  allowOrganiserSelfSignup Boolean  @default(true) @map("allow_organiser_self_signup")
+  cardToCardQrConnections  Boolean  @default(false) @map("card_to_card_qr_connections")
+  crossEventNetworks       Boolean  @default(false) @map("cross_event_networks")
+  multiLanguageSupport     Boolean  @default(false) @map("multi_language_support")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+  updatedBy                String?  @map("updated_by")
+
+  @@map("platform_settings")
+}
+
 model ProfileView {
   id        String   @id @default(cuid())
   viewerId  String   @map("viewer_id")
