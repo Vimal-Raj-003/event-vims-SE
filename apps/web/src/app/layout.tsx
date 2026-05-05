@@ -51,8 +51,7 @@ export async function generateMetadata(): Promise<Metadata> {
       default: `${platformName}: Smart Networking for Every Event`,
       template: `%s | ${platformName}`,
     },
-    description:
-      "Create unforgettable networking experiences. VIMS Events connects attendees through smart digital business cards, live directories, and intelligent matching at conferences, meetups, and corporate events.",
+    description: `Create unforgettable networking experiences. ${platformName} connects attendees through smart digital business cards, live directories, and intelligent matching at conferences, meetups, and corporate events.`,
     keywords: [
       "event networking",
       "digital business cards",
