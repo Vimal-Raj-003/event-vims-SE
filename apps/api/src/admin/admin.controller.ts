@@ -14,6 +14,9 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { AdminService } from './admin.service';
+import { PlatformSettingsService } from './platform-settings.service';
+import { UpdatePlatformSettingsDto } from './dto/update-platform-settings.dto';
+import { PlatformSettingsResponseDto } from './dto/platform-settings-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -39,7 +42,27 @@ class UpdateTicketDto {
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('SUPER_ADMIN')
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly platformSettings: PlatformSettingsService,
+  ) {}
+
+  // ──────────────────────────────────────────────
+  // Platform Settings
+  // ──────────────────────────────────────────────
+
+  @Get('settings')
+  async getSettings(): Promise<PlatformSettingsResponseDto> {
+    return this.platformSettings.get();
+  }
+
+  @Patch('settings')
+  async updateSettings(
+    @CurrentUser() user: CurrentUserData,
+    @Body() dto: UpdatePlatformSettingsDto,
+  ): Promise<PlatformSettingsResponseDto> {
+    return this.platformSettings.update(dto, user.sub);
+  }
 
   // ──────────────────────────────────────────────
   // Platform Analytics

@@ -10,10 +10,12 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { OtpRateLimitGuard } from './guards/otp-rate-limit.guard';
 import { PrismaModule } from '../prisma/prisma.module';
+import { AdminModule } from '../admin/admin.module';
 
 @Module({
   imports: [
     PrismaModule,
+    AdminModule,
     PassportModule.register({ defaultStrategy: 'jwt', session: false }),
     JwtModule.registerAsync({
       imports: [ConfigModule],

@@ -6,6 +6,7 @@ import { useState, useRef, useEffect } from "react";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { apiClient, clearStoredTokens } from "@/lib/api-client";
 import ThemeToggle from "@/components/ThemeToggle";
+import { usePlatformSettings } from "@/hooks/use-platform-settings";
 
 const ADMIN_PAGE_META: Record<string, { title: string; subtitle: string }> = {
   "overview":          { title: "Platform Overview",  subtitle: "Real-time analytics across all tenants" },
@@ -71,6 +72,8 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
   const notifRef = useRef<HTMLDivElement>(null);
   const user = useAuthStore((s) => s.user);
   const logoutStore = useAuthStore((s) => s.logout);
+  const { data: settings } = usePlatformSettings();
+  const platformName = settings.platformName;
 
   const unread = notifs.filter((n) => !n.isRead).length;
 
@@ -130,7 +133,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
           </div>
           {!collapsed && (
             <div className="overflow-hidden">
-              <p className="text-sm font-bold text-foreground leading-none truncate">VIMS Admin</p>
+              <p className="text-sm font-bold text-foreground leading-none truncate">{platformName} Admin</p>
               <p className="text-[10px] text-muted-foreground mt-0.5">Super Admin Panel</p>
             </div>
           )}

@@ -27,6 +27,7 @@ import { ActivityModule } from './activity/activity.module';
 import { MailModule } from './mail/mail.module';
 import { HealthController } from './health/health.controller';
 import { PublicController } from './public/public.controller';
+import { PublicModule } from './public/public.module';
 
 @Module({
   imports: [
@@ -96,6 +97,7 @@ import { PublicController } from './public/public.controller';
     AnalyticsModule,
     ActivityModule,
     MailModule,
+    PublicModule,
   ],
   controllers: [HealthController, PublicController],
 })

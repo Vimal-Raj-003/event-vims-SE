@@ -9,6 +9,7 @@ import { apiClient, clearStoredTokens } from "@/lib/api-client";
 import ChatbotWidget from "@/components/ChatbotWidget";
 import ThemeToggle from "@/components/ThemeToggle";
 import { useToast } from "@/hooks/use-toast";
+import { usePlatformSettings } from "@/hooks/use-platform-settings";
 
 const PAGE_META: Record<string, { title: string; subtitle: string }> = {
   "dashboard":     { title: "Dashboard",      subtitle: "Real-time overview of your events" },
@@ -76,6 +77,8 @@ export default function OrganiserLayout({ children }: { children: React.ReactNod
   const user = useAuthStore((s) => s.user);
   const logoutStore = useAuthStore((s) => s.logout);
   const router = useRouter();
+  const { data: settings } = usePlatformSettings();
+  const platformName = settings.platformName;
 
   // Auth guard — redirect to login if not authenticated
   useEffect(() => {
@@ -128,7 +131,7 @@ export default function OrganiserLayout({ children }: { children: React.ReactNod
           </div>
           {!collapsed && (
             <div className="overflow-hidden">
-              <p className="text-sm font-bold text-foreground leading-none truncate">VIMS Events</p>
+              <p className="text-sm font-bold text-foreground leading-none truncate">{platformName}</p>
               <p className="text-[10px] text-muted-foreground mt-0.5">Organiser</p>
             </div>
           )}

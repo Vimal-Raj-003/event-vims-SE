@@ -258,7 +258,7 @@ The change is additive: a new model, new endpoints, no schema breaks. Steps:
 1. Apply migration (creates table + seeds singleton row with current hard-coded defaults).
 2. Deploy API.
 3. Deploy web (Settings page now works, public surfaces start reading from `/public/settings`).
-4. Existing behaviour is preserved because the seed row's defaults match what was hardcoded.
+4. Existing behaviour is preserved because the seed row's defaults match what was hardcoded — with one deliberate correction: `supportEmail` is seeded as `admin@vimsenterprise.com` (the canonical domain used in `docker-compose.yml`, the deploy workflow, and the production subdomain `se.vimsenterprise.com`), not the legacy hyphenated typo `admin@vims-enterprise.com` that appeared in the static UI. Operators can still edit the value via the Settings page after deploy.
 
 No data backfill or maintenance window needed. Rollback = revert deployments + drop the new table (no other code references it). Existing `audit_logs` rows referencing the table aren't a problem — `audit_logs.entity_id` is a free-form TEXT field with no foreign key.
 

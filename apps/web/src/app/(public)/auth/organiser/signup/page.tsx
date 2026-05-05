@@ -4,11 +4,13 @@ import { useState } from "react";
 import Link from "next/link";
 import { apiClient } from "@/lib/api-client";
 import { useRouter } from "next/navigation";
+import { usePlatformSettings } from "@/hooks/use-platform-settings";
 
 type ResendStatus = "idle" | "sending" | "sent" | "error";
 
 export default function OrganiserSignupPage() {
   const router = useRouter();
+  const { data: platformSettings, loading: settingsLoading } = usePlatformSettings();
   const [form, setForm] = useState({ name: "", organisation: "", email: "", mobile: "", password: "", confirmPassword: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -52,6 +54,12 @@ export default function OrganiserSignupPage() {
       if (axiosErr.response?.status === 409) {
         setEmailExists(true);
         setError(msg ?? "An account with this email already exists.");
+      } else if (axiosErr.response?.status === 403) {
+        // Only path to a 403 from POST /auth/organiser/signup is the
+        // self-signup gate in AuthService.organiserSignup.
+        setError(
+          `Self-signup is currently disabled. Please contact ${platformSettings.supportEmail}.`,
+        );
       } else {
         setError(msg ?? "Something went wrong. Please try again.");
       }
@@ -93,6 +101,48 @@ export default function OrganiserSignupPage() {
 
   const inputClass = "w-full rounded-2xl border border-border bg-muted/30 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/60 transition-all focus:border-primary focus:bg-white focus:outline-none focus:ring-3 focus:ring-primary/10";
   const labelClass = "block text-sm font-semibold text-foreground mb-1.5";
+
+  // Disabled-state branch: when the platform admin has turned off self-signup,
+  // we render a friendly "request access" CTA pointing at the configured
+  // support email instead of showing a form that the backend will reject.
+  if (!settingsLoading && !platformSettings.selfSignupEnabled) {
+    const subject = encodeURIComponent(
+      `Organiser account request — ${platformSettings.platformName}`,
+    );
+    const body = encodeURIComponent(
+      `Hi,\n\nI'd like to request an organiser account for ${platformSettings.platformName}.\n\nName:\nOrganisation:\nReason:\n\nThanks.`,
+    );
+    return (
+      <div className="animate-in">
+        <div className="mb-8">
+          <h1 className="text-3xl font-extrabold text-foreground tracking-tight">
+            Organiser self-signup is currently disabled
+          </h1>
+          <p className="mt-2 text-muted-foreground">
+            To request an organiser account on {platformSettings.platformName},
+            please get in touch — we&apos;ll get you set up.
+          </p>
+        </div>
+
+        <a
+          href={`mailto:${platformSettings.supportEmail}?subject=${subject}&body=${body}`}
+          className="group block w-full overflow-hidden rounded-2xl bg-primary py-3.5 text-center text-sm font-bold text-white shadow-lg shadow-primary/25 transition-all hover:shadow-primary/40 hover:scale-[1.01]"
+        >
+          Request access →
+        </a>
+
+        <p className="mt-5 text-center text-sm text-muted-foreground">
+          Already have an account?{" "}
+          <Link
+            href="/auth/organiser/login"
+            className="font-semibold text-primary hover:text-primary-600 transition-colors"
+          >
+            Log in
+          </Link>
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="animate-in">
