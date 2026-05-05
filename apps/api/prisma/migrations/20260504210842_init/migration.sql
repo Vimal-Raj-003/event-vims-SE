@@ -1,3 +1,6 @@
+-- Required for GIN trigram indexes on attendees(first_name, company)
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
 -- CreateSchema
 CREATE SCHEMA IF NOT EXISTS "public";
 
@@ -558,3 +561,103 @@ ALTER TABLE "match_scores" ADD CONSTRAINT "match_scores_target_id_fkey" FOREIGN 
 -- AddForeignKey
 ALTER TABLE "activities" ADD CONSTRAINT "activities_attendee_id_fkey" FOREIGN KEY ("attendee_id") REFERENCES "attendees"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Row Level Security (RLS) for Multi-Tenant Isolation
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- Enable RLS on tenant-scoped tables
+ALTER TABLE "events" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "attendees" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "connection_requests" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "announcements" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "event_field_config" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "event_rules" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "notifications" ENABLE ROW LEVEL SECURITY;
+
+-- ═══ EVENTS ═══
+CREATE POLICY "organiser_own_events" ON "events"
+  FOR ALL
+  USING (organiser_id = current_setting('app.current_organiser_id', true)::text)
+  WITH CHECK (organiser_id = current_setting('app.current_organiser_id', true)::text);
+
+CREATE POLICY "super_admin_bypass_events" ON "events"
+  FOR ALL
+  USING (current_setting('app.is_super_admin', true)::boolean = true);
+
+CREATE POLICY "public_read_published_events" ON "events"
+  FOR SELECT
+  USING (status = 'PUBLISHED' AND current_setting('app.current_organiser_id', true) = '');
+
+-- ═══ ATTENDEES ═══
+CREATE POLICY "event_scoped_attendees" ON "attendees"
+  FOR ALL
+  USING (event_id = current_setting('app.current_event_id', true)::text)
+  WITH CHECK (event_id = current_setting('app.current_event_id', true)::text);
+
+CREATE POLICY "super_admin_bypass_attendees" ON "attendees"
+  FOR ALL
+  USING (current_setting('app.is_super_admin', true)::boolean = true);
+
+CREATE POLICY "organiser_read_attendees" ON "attendees"
+  FOR SELECT
+  USING (
+    event_id IN (
+      SELECT id FROM "events"
+      WHERE organiser_id = current_setting('app.current_organiser_id', true)::text
+    )
+  );
+
+-- ═══ CONNECTION REQUESTS ═══
+CREATE POLICY "event_scoped_connections" ON "connection_requests"
+  FOR ALL
+  USING (event_id = current_setting('app.current_event_id', true)::text)
+  WITH CHECK (event_id = current_setting('app.current_event_id', true)::text);
+
+CREATE POLICY "super_admin_bypass_connections" ON "connection_requests"
+  FOR ALL
+  USING (current_setting('app.is_super_admin', true)::boolean = true);
+
+-- ═══ ANNOUNCEMENTS ═══
+CREATE POLICY "event_scoped_announcements" ON "announcements"
+  FOR ALL
+  USING (event_id = current_setting('app.current_event_id', true)::text)
+  WITH CHECK (event_id = current_setting('app.current_event_id', true)::text);
+
+CREATE POLICY "super_admin_bypass_announcements" ON "announcements"
+  FOR ALL
+  USING (current_setting('app.is_super_admin', true)::boolean = true);
+
+-- ═══ EVENT FIELD CONFIG ═══
+CREATE POLICY "event_scoped_field_config" ON "event_field_config"
+  FOR ALL
+  USING (event_id = current_setting('app.current_event_id', true)::text)
+  WITH CHECK (event_id = current_setting('app.current_event_id', true)::text);
+
+CREATE POLICY "super_admin_bypass_field_config" ON "event_field_config"
+  FOR ALL
+  USING (current_setting('app.is_super_admin', true)::boolean = true);
+
+-- ═══ EVENT RULES ═══
+CREATE POLICY "event_scoped_rules" ON "event_rules"
+  FOR ALL
+  USING (event_id = current_setting('app.current_event_id', true)::text)
+  WITH CHECK (event_id = current_setting('app.current_event_id', true)::text);
+
+CREATE POLICY "super_admin_bypass_rules" ON "event_rules"
+  FOR ALL
+  USING (current_setting('app.is_super_admin', true)::boolean = true);
+
+-- ═══ NOTIFICATIONS ═══
+-- Notifications table has attendee_id, not event_id directly. Scope via attendee.
+CREATE POLICY "attendee_scoped_notifications" ON "notifications"
+  FOR ALL
+  USING (
+    attendee_id IN (
+      SELECT id FROM "attendees"
+      WHERE event_id = current_setting('app.current_event_id', true)::text
+    )
+  );
+
+CREATE POLICY "super_admin_bypass_notifications" ON "notifications"
+  FOR ALL
+  USING (current_setting('app.is_super_admin', true)::boolean = true);
