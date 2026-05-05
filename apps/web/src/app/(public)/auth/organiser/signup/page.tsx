@@ -54,11 +54,9 @@ export default function OrganiserSignupPage() {
       if (axiosErr.response?.status === 409) {
         setEmailExists(true);
         setError(msg ?? "An account with this email already exists.");
-      } else if (
-        axiosErr.response?.status === 403 &&
-        typeof msg === "string" &&
-        msg.toLowerCase().includes("self-signup")
-      ) {
+      } else if (axiosErr.response?.status === 403) {
+        // Only path to a 403 from POST /auth/organiser/signup is the
+        // self-signup gate in AuthService.organiserSignup.
         setError(
           `Self-signup is currently disabled. Please contact ${platformSettings.supportEmail}.`,
         );
@@ -118,7 +116,7 @@ export default function OrganiserSignupPage() {
       <div className="animate-in">
         <div className="mb-8">
           <h1 className="text-3xl font-extrabold text-foreground tracking-tight">
-            Self-signup is currently disabled
+            Organiser self-signup is currently disabled
           </h1>
           <p className="mt-2 text-muted-foreground">
             To request an organiser account on {platformSettings.platformName},
