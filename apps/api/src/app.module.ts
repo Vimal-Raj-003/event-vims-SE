@@ -26,6 +26,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { ActivityModule } from './activity/activity.module';
 import { MailModule } from './mail/mail.module';
 import { HealthController } from './health/health.controller';
+import { PublicController } from './public/public.controller';
 
 @Module({
   imports: [
@@ -96,6 +97,6 @@ import { HealthController } from './health/health.controller';
     ActivityModule,
     MailModule,
   ],
-  controllers: [HealthController],
+  controllers: [HealthController, PublicController],
 })
 export class AppModule {}

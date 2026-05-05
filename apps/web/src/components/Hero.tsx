@@ -1,10 +1,39 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { apiClient } from "@/lib/api-client";
 import { HeroBackground } from "./hero/HeroBackground";
 import { HeroPhonePreview } from "./hero/HeroPhonePreview";
 
+function useLiveAttendeeCount() {
+  const [count, setCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchCount = async () => {
+      try {
+        const { data } = await apiClient.get<{ networkingNow: number }>("/public/stats");
+        if (!cancelled && typeof data?.networkingNow === "number") {
+          setCount(data.networkingNow);
+        }
+      } catch {
+        // Endpoint unavailable — keep count null so the UI hides the number gracefully.
+      }
+    };
+    fetchCount();
+    const id = setInterval(fetchCount, 30_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
+
+  return count;
+}
+
 export default function Hero() {
+  const liveCount = useLiveAttendeeCount();
   return (
     <section
       data-landing-hero
@@ -30,32 +59,10 @@ export default function Hero() {
               style={{ animationDelay: "80ms" }}
             >
               Turn Every Handshake Into a{" "}
-              <span className="relative inline-block">
+              <span className="hero-measurable relative inline-block">
                 <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-500 bg-clip-text text-transparent animate-gradient">
                   Measurable Connection
                 </span>
-                <svg
-                  className="absolute -bottom-3 left-0 w-full overflow-visible"
-                  viewBox="0 0 400 12"
-                  preserveAspectRatio="none"
-                  fill="none"
-                  aria-hidden="true"
-                >
-                  <path
-                    className="animate-draw"
-                    d="M4 8 Q80 2 160 6 Q240 10 320 4 Q360 2 396 6"
-                    stroke="url(#heroUL)"
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                  />
-                  <defs>
-                    <linearGradient id="heroUL" x1="0" y1="0" x2="400" y2="0" gradientUnits="userSpaceOnUse">
-                      <stop stopColor="#34d399" />
-                      <stop offset="0.5" stopColor="#5eead4" />
-                      <stop offset="1" stopColor="#10b981" />
-                    </linearGradient>
-                  </defs>
-                </svg>
               </span>
             </h1>
 
@@ -126,9 +133,22 @@ export default function Hero() {
                 <span className="animate-pulse-ring absolute inline-flex h-full w-full rounded-full bg-emerald-400" />
                 <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
               </span>
-              <span aria-label="1,284 attendees networking now">
-                <strong className="font-semibold">1,284</strong> attendees networking now
-              </span>
+              {liveCount === null ? (
+                <span>
+                  <strong className="font-semibold">Live</strong> · attendees networking now
+                </span>
+              ) : liveCount === 0 ? (
+                <span>
+                  <strong className="font-semibold">Beta</strong> · be the first to host
+                </span>
+              ) : (
+                <span aria-label={`${liveCount.toLocaleString()} attendees networking now`}>
+                  <strong className="font-semibold tabular-nums">
+                    {liveCount.toLocaleString()}
+                  </strong>{" "}
+                  attendees networking now
+                </span>
+              )}
             </div>
           </div>
         </div>

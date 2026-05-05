@@ -77,6 +77,25 @@ apiClient.interceptors.request.use(
   (error: AxiosError) => Promise.reject(error),
 );
 
+// Single in-flight refresh promise — prevents concurrent 401s from each
+// spawning their own refresh call (which would consume and revoke each other's
+// refresh tokens via rotation).
+let refreshPromise: Promise<TokenPayload> | null = null;
+
+function refreshTokens(refreshToken: string): Promise<TokenPayload> {
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = axios
+    .post<{ data: TokenPayload }>(`${API_BASE_URL}/auth/refresh`, { refreshToken })
+    .then((res) => {
+      setStoredTokens(res.data.data);
+      return res.data.data;
+    })
+    .finally(() => {
+      refreshPromise = null;
+    });
+  return refreshPromise;
+}
+
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
@@ -97,13 +116,8 @@ apiClient.interceptors.response.use(
       }
 
       try {
-        const { data } = await axios.post<{ data: TokenPayload }>(
-          `${API_BASE_URL}/auth/refresh`,
-          { refreshToken: tokens.refreshToken },
-        );
-
-        setStoredTokens(data.data);
-        originalRequest.headers.Authorization = `Bearer ${data.data.accessToken}`;
+        const fresh = await refreshTokens(tokens.refreshToken);
+        originalRequest.headers.Authorization = `Bearer ${fresh.accessToken}`;
         return apiClient(originalRequest);
       } catch {
         clearStoredTokens();

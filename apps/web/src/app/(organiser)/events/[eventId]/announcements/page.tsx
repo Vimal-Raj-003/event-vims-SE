@@ -25,12 +25,16 @@ export default function AnnouncementsPage() {
   const fetchAnnouncements = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await apiClient.get<{ data: Announcement[] }>(
-        `/events/${eventId}/announcements`
-      );
-      setAnnouncements(data.data ?? data as unknown as Announcement[]);
+      const { data } = await apiClient.get<{
+        items?: Announcement[];
+        data?: Announcement[];
+      } | Announcement[]>(`/events/${eventId}/announcements`);
+      const list = Array.isArray(data)
+        ? data
+        : (data.items ?? data.data ?? []);
+      setAnnouncements(list);
     } catch {
-      // ignore
+      setAnnouncements([]);
     } finally {
       setLoading(false);
     }

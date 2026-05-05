@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
 
-export default function AttendeeRegisterPage() {
+function AttendeeRegisterContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const eventId = searchParams.get("eventId") ?? "";
@@ -93,5 +93,26 @@ export default function AttendeeRegisterPage() {
         Your data is only used for event networking.
       </p>
     </div>
+  );
+}
+
+function AttendeeRegisterFallback() {
+  return (
+    <div className="w-full max-w-md space-y-6">
+      <div className="text-center">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
+          <span className="text-lg font-bold text-white">V</span>
+        </div>
+        <h1 className="mt-4 text-2xl font-bold text-foreground">Loading…</h1>
+      </div>
+    </div>
+  );
+}
+
+export default function AttendeeRegisterPage() {
+  return (
+    <Suspense fallback={<AttendeeRegisterFallback />}>
+      <AttendeeRegisterContent />
+    </Suspense>
   );
 }

@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useId,
   useRef,
   useState,
   type KeyboardEvent,
@@ -19,6 +20,166 @@ interface FeatureBlock {
 }
 
 const SPOTLIGHT_INTERVAL_MS = 2000;
+
+/* ──────────────────────────────────────────────────────────────────────
+ * Enterprise-grade networking pattern shown during card hover/active state.
+ *
+ * Design discipline (modeled on Stripe, Linear, Vercel card patterns):
+ *   - All visual elements live in the RIGHT zone of the card so the title
+ *     and body copy on the left stay 100% legible.
+ *   - Structured dot matrix in the right edge (geometric, regular — not
+ *     random scatter) signals "infrastructure / network".
+ *   - One elegant flow curve along the right edge with a single traveling
+ *     pulse signals "live signal / active connection".
+ *   - One soft radial halo from top-right corner gives the card a sense of
+ *     subtle illumination without competing with foreground content.
+ *   - patternIndex 0/1/2 swap the curve direction so adjacent cards aren't
+ *     identical, but the visual language stays consistent across all 6.
+ *
+ * Pure SVG + SMIL — no JS animation loop, no client interactivity needed.
+ * ────────────────────────────────────────────────────────────────────── */
+interface PatternProps {
+  accent: "emerald" | "indigo";
+  patternIndex: number;
+  visibleClass: string;
+}
+
+const PATTERN_VARIANTS: Array<{
+  curve: string;
+  start: { x: number; y: number };
+  end: { x: number; y: number };
+  midpoint: { x: number; y: number };
+}> = [
+  // 0: top-right → mid-right → bottom-right (gentle S curve down)
+  {
+    curve: "M 235 24 Q 290 70 285 110 Q 280 162 258 196",
+    start: { x: 235, y: 24 },
+    end: { x: 258, y: 196 },
+    midpoint: { x: 285, y: 110 },
+  },
+  // 1: bottom-right → mid-right → top-right (curve up)
+  {
+    curve: "M 250 200 Q 290 158 282 110 Q 274 60 240 26",
+    start: { x: 250, y: 200 },
+    end: { x: 240, y: 26 },
+    midpoint: { x: 282, y: 110 },
+  },
+  // 2: shallow horizontal-ish hop along the right edge
+  {
+    curve: "M 230 40 Q 270 75 290 110 Q 270 150 240 195",
+    start: { x: 230, y: 40 },
+    end: { x: 240, y: 195 },
+    midpoint: { x: 290, y: 110 },
+  },
+];
+
+function CardNetworkPattern({ accent, patternIndex, visibleClass }: PatternProps) {
+  const reactId = useId().replace(/[:]/g, ""); // sanitize for SVG-id use
+  const stroke = accent === "emerald" ? "#10b981" : "#6366f1";
+  const safeIndex =
+    ((patternIndex % PATTERN_VARIANTS.length) + PATTERN_VARIANTS.length) % PATTERN_VARIANTS.length;
+  const v = PATTERN_VARIANTS[safeIndex]!;
+
+  // Build a structured dot matrix that fades in left-to-right across the
+  // right ~35% of the card. Geometric, regular — reads as "infrastructure".
+  const dots: { x: number; y: number; opacity: number }[] = [];
+  const STEP = 14;
+  for (let row = 0; row < 16; row++) {
+    for (let col = 14; col < 23; col++) {
+      const x = col * STEP + 7;
+      const y = row * STEP + 7;
+      if (x > 320 || y > 220) continue;
+      // Linear fade-in: invisible at x=200, full at x=300
+      const fade = Math.max(0, Math.min(1, (x - 200) / 100));
+      if (fade > 0.05) {
+        dots.push({ x, y, opacity: fade * 0.32 });
+      }
+    }
+  }
+
+  const haloId = `pat-halo-${reactId}`;
+  const flowId = `pat-flow-${reactId}`;
+
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 320 220"
+      preserveAspectRatio="xMidYMid slice"
+      className={`pointer-events-none absolute inset-0 h-full w-full transition-opacity duration-500 ease-out motion-reduce:transition-none ${visibleClass}`}
+      fill="none"
+    >
+      <defs>
+        {/* Soft halo radiating from the top-right — gives the card subtle
+            ambient light without polluting the text zone. */}
+        <radialGradient id={haloId} cx="88%" cy="14%" r="62%">
+          <stop offset="0%" stopColor={stroke} stopOpacity="0.18" />
+          <stop offset="55%" stopColor={stroke} stopOpacity="0.04" />
+          <stop offset="100%" stopColor={stroke} stopOpacity="0" />
+        </radialGradient>
+        {/* Flow-line gradient: invisible at the ends, ~55% in the middle.
+            Reads as a single elegant "live signal" rather than a hard rule. */}
+        <linearGradient id={flowId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={stroke} stopOpacity="0" />
+          <stop offset="50%" stopColor={stroke} stopOpacity="0.5" />
+          <stop offset="100%" stopColor={stroke} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+
+      {/* Layer A — soft ambient halo */}
+      <rect width="320" height="220" fill={`url(#${haloId})`} />
+
+      {/* Layer B — structured dot matrix (right zone only, fading in) */}
+      {dots.map((d, i) => (
+        <circle key={i} cx={d.x} cy={d.y} r="0.8" fill={stroke} opacity={d.opacity} />
+      ))}
+
+      {/* Layer C — single elegant flow curve along the right edge */}
+      <path
+        d={v.curve}
+        stroke={`url(#${flowId})`}
+        strokeWidth="1.1"
+        fill="none"
+        strokeLinecap="round"
+      />
+
+      {/* Layer D — anchor markers at curve start, midpoint, end (subtle) */}
+      <circle cx={v.start.x} cy={v.start.y} r="1.6" fill={stroke} opacity="0.55" />
+      <circle cx={v.midpoint.x} cy={v.midpoint.y} r="1.4" fill={stroke} opacity="0.45" />
+
+      {/* Layer E — endpoint with broadcast pulse-ring (the focal point) */}
+      <circle cx={v.end.x} cy={v.end.y} r="6" fill="none" stroke={stroke} strokeWidth="1" opacity="0.5">
+        <animate attributeName="r" values="6;16" dur="2.4s" repeatCount="indefinite" />
+        <animate attributeName="opacity" values="0.5;0" dur="2.4s" repeatCount="indefinite" />
+      </circle>
+      <circle cx={v.end.x} cy={v.end.y} r="2.8" fill={stroke}>
+        <animate attributeName="opacity" values="0.65;1;0.65" dur="2.4s" repeatCount="indefinite" />
+      </circle>
+
+      {/* Layer F — single traveling pulse + trailing dot riding the curve */}
+      <circle r="2.2" fill={stroke}>
+        <animateMotion dur="3.2s" repeatCount="indefinite" path={v.curve} />
+        <animate
+          attributeName="opacity"
+          values="0;0.95;0.95;0"
+          keyTimes="0;0.12;0.85;1"
+          dur="3.2s"
+          repeatCount="indefinite"
+        />
+      </circle>
+      <circle r="1.2" fill={stroke}>
+        <animateMotion dur="3.2s" begin="0.18s" repeatCount="indefinite" path={v.curve} />
+        <animate
+          attributeName="opacity"
+          values="0;0.55;0.55;0"
+          keyTimes="0;0.12;0.85;1"
+          dur="3.2s"
+          begin="0.18s"
+          repeatCount="indefinite"
+        />
+      </circle>
+    </svg>
+  );
+}
 
 const ICON_PROPS = {
   className: "h-5 w-5",
@@ -180,6 +341,32 @@ export function WhatYouGet() {
 
   const { ref: revealRef, revealed } = useScrollReveal<HTMLDivElement>();
 
+  // Cursor-driven hover state. When the user hovers a specific card, that card
+  // takes over the highlight — independent of the auto-cycle.
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const displayedActive = hoveredIndex ?? activeIndex;
+
+  // Sets CSS vars on the card so the spotlight + 3D tilt follow the cursor.
+  const handleCardMouseMove = (e: React.MouseEvent<HTMLElement>) => {
+    const card = e.currentTarget as HTMLElement;
+    const rect = card.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
+    const nx = px / rect.width - 0.5;   // -0.5 .. 0.5
+    const ny = py / rect.height - 0.5;
+    card.style.setProperty("--mx", `${px}px`);
+    card.style.setProperty("--my", `${py}px`);
+    card.style.setProperty("--rx", `${(-ny * 5).toFixed(2)}deg`);
+    card.style.setProperty("--ry", `${(nx * 7).toFixed(2)}deg`);
+  };
+
+  const handleCardMouseLeave = (e: React.MouseEvent<HTMLElement>) => {
+    const card = e.currentTarget as HTMLElement;
+    card.style.setProperty("--rx", "0deg");
+    card.style.setProperty("--ry", "0deg");
+    setHoveredIndex(null);
+  };
+
   const switchRoleByKey = (
     e: KeyboardEvent<HTMLButtonElement>,
     surface: "desktop" | "mobile",
@@ -213,7 +400,7 @@ export function WhatYouGet() {
       : "bg-indigo-50 border-indigo-200 text-indigo-600";
 
   return (
-    <section id="features" className="relative bg-white py-24 lg:py-32 scroll-mt-20 overflow-hidden">
+    <section id="features" className="relative bg-white py-14 lg:py-20 scroll-mt-20 overflow-hidden">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute -top-20 right-0 h-[300px] w-[300px] rounded-full bg-emerald-200/20 blur-[120px]"
@@ -322,28 +509,83 @@ export function WhatYouGet() {
           onFocusCapture={pause}
           onBlurCapture={resume}
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white rounded-2xl"
+          style={{ perspective: "1200px" }}
         >
           {blocks.map((b, idx) => {
-            const isActive = idx === activeIndex;
+            const isActive = idx === displayedActive;
+            const spotColor = accent === "emerald" ? "rgba(16,185,129,0.18)" : "rgba(99,102,241,0.18)";
+            const sheenGradient =
+              accent === "emerald"
+                ? "from-emerald-400 via-teal-400 to-emerald-500"
+                : "from-indigo-400 via-violet-400 to-indigo-500";
             return (
-              <div
+              <article
                 key={b.title}
-                className={`rounded-2xl border bg-white p-6 transition-all duration-300 ease-out motion-reduce:transition-none ${
+                onMouseEnter={() => setHoveredIndex(idx)}
+                onMouseMove={handleCardMouseMove}
+                onMouseLeave={handleCardMouseLeave}
+                className={`feature-card group relative overflow-hidden rounded-2xl border bg-white p-6 transition-[box-shadow,border-color,transform] duration-300 ease-out motion-reduce:transition-none will-change-transform ${
                   isActive
-                    ? `${accentBorderActive} shadow-lg ring-4 ${accentRingActive} -translate-y-1`
-                    : "border-slate-200 shadow-sm hover:border-slate-300 hover:shadow"
+                    ? `${accentBorderActive} shadow-2xl shadow-slate-900/[0.08] ring-4 ${accentRingActive}`
+                    : "border-slate-200 shadow-sm hover:border-slate-300 hover:shadow-lg hover:shadow-slate-900/[0.04]"
                 }`}
+                style={{
+                  transformStyle: "preserve-3d",
+                  transform: isActive
+                    ? "translateY(-6px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg))"
+                    : "translateY(0) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg))",
+                }}
               >
+                {/* Layer 1: Cursor-following spotlight (instant, no transition for buttery follow) */}
                 <div
-                  className={`w-10 h-10 rounded-xl border flex items-center justify-center mb-5 transition-colors duration-300 ease-out ${
-                    isActive ? accentIconBgActive : accentIconBgIdle
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                  style={{
+                    background: `radial-gradient(280px circle at var(--mx, 50%) var(--my, 50%), ${spotColor}, transparent 65%)`,
+                  }}
+                />
+                {/* Layer 2: Subtle gradient sheen — strongest on active, hint on hover */}
+                <div
+                  aria-hidden="true"
+                  className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${sheenGradient} transition-opacity duration-500 ${
+                    isActive ? "opacity-[0.06]" : "opacity-0 group-hover:opacity-[0.025]"
                   }`}
-                >
-                  {b.icon}
+                />
+                {/* Layer 2.5: Networking pattern (nodes + connection lines + traveling pulse) */}
+                <CardNetworkPattern
+                  accent={accent}
+                  patternIndex={idx % 3}
+                  visibleClass={
+                    isActive ? "opacity-100" : "opacity-0 group-hover:opacity-70"
+                  }
+                />
+                {/* Layer 3: Top edge accent line on active — feels like a "selected" marker */}
+                <div
+                  aria-hidden="true"
+                  className={`pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent ${
+                    accent === "emerald" ? "via-emerald-400" : "via-indigo-400"
+                  } to-transparent transition-opacity duration-300 ${
+                    isActive ? "opacity-100" : "opacity-0 group-hover:opacity-60"
+                  }`}
+                />
+
+                {/* Card content (lifted onto its own z-plane for the 3D tilt to feel real) */}
+                <div className="relative" style={{ transform: "translateZ(20px)" }}>
+                  <div
+                    className={`w-11 h-11 rounded-xl border flex items-center justify-center mb-5 transition-all duration-300 ease-out ${
+                      isActive
+                        ? `${accentIconBgActive} scale-110 shadow-lg ${
+                            accent === "emerald" ? "shadow-emerald-500/30" : "shadow-indigo-500/30"
+                          }`
+                        : `${accentIconBgIdle} group-hover:scale-105`
+                    }`}
+                  >
+                    {b.icon}
+                  </div>
+                  <h3 className="text-base font-semibold text-slate-900 mb-2">{b.title}</h3>
+                  <p className="text-sm text-slate-600 leading-relaxed">{b.body}</p>
                 </div>
-                <h3 className="text-base font-semibold text-slate-900 mb-2">{b.title}</h3>
-                <p className="text-sm text-slate-600 leading-relaxed">{b.body}</p>
-              </div>
+              </article>
             );
           })}
         </div>

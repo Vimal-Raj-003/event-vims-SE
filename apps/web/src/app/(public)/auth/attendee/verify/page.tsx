@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { Suspense, useState, useRef, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { apiClient, setStoredTokens } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/stores/auth-store";
 
-export default function AttendeeVerifyPage() {
+function AttendeeVerifyContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const login = useAuthStore((s) => s.login);
@@ -161,5 +161,26 @@ export default function AttendeeVerifyPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+function AttendeeVerifyFallback() {
+  return (
+    <div className="w-full max-w-md space-y-6">
+      <div className="text-center">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
+          <span className="text-lg font-bold text-white">V</span>
+        </div>
+        <h1 className="mt-4 text-2xl font-bold text-foreground">Loading…</h1>
+      </div>
+    </div>
+  );
+}
+
+export default function AttendeeVerifyPage() {
+  return (
+    <Suspense fallback={<AttendeeVerifyFallback />}>
+      <AttendeeVerifyContent />
+    </Suspense>
   );
 }

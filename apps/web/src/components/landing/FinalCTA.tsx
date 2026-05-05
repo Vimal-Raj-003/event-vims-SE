@@ -2,16 +2,14 @@
 
 import Link from "next/link";
 import { useScrollReveal } from "@/hooks/use-scroll-reveal";
+import { NetworkGraphBackdrop } from "./NetworkGraphBackdrop";
 
 export function FinalCTA() {
   const { ref, revealed } = useScrollReveal<HTMLDivElement>();
 
   return (
-    <section className="relative bg-white py-24 lg:py-32 overflow-hidden">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -bottom-32 -right-20 h-[420px] w-[420px] rounded-full bg-emerald-200/25 blur-[120px]"
-      />
+    <section className="relative bg-white py-14 lg:py-20 overflow-hidden">
+      <NetworkGraphBackdrop idPrefix="finalcta" accentTone="emerald" />
 
       <div
         ref={ref}
@@ -26,7 +24,7 @@ export function FinalCTA() {
           Ready to transform your event networking?
         </h2>
         <p className="text-base sm:text-lg text-slate-600 leading-relaxed max-w-2xl mx-auto">
-          Be among the first to use VIMS Events. Set up your first event in under five minutes — completely free during beta.
+          Be among the first to use VIMS Events. Set up your first event in under five minutes, completely free during beta.
         </p>
         <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">
           <Link

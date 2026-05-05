@@ -19,9 +19,16 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  /* Immediately check scroll position on mount to avoid flash */
+  /* Track scroll for header transition. Two thresholds:
+     - 8px: starts the visual transition (subtle border glow)
+     - 64px: full solid state */
+  const [scrollProgress, setScrollProgress] = useState(0);
   useEffect(() => {
-    const check = () => setScrolled(window.scrollY > 24);
+    const check = () => {
+      const y = window.scrollY;
+      setScrolled(y > 64);
+      setScrollProgress(Math.min(y / 64, 1));
+    };
     check();
     window.addEventListener("scroll", check, { passive: true });
     return () => window.removeEventListener("scroll", check);
@@ -39,26 +46,39 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
     <div className="flex min-h-screen flex-col">
       {/* ── Header ─────────────────────────────────────────────────── */}
       <header
-        className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-          transparent
-            ? "border-transparent bg-transparent"
-            : "border-b border-white/10 bg-white/90 shadow-sm shadow-black/5 backdrop-blur-xl"
+        style={
+          isHome
+            ? {
+                backgroundColor: `rgba(255,255,255,${0.92 * scrollProgress})`,
+                borderBottomColor: `rgba(15,23,42,${0.08 * scrollProgress})`,
+                boxShadow: scrollProgress > 0.4 ? `0 1px 3px rgba(15,23,42,${0.05 * scrollProgress})` : "none",
+                backdropFilter: scrollProgress > 0 ? `blur(${12 * scrollProgress}px) saturate(180%)` : "none",
+                WebkitBackdropFilter: scrollProgress > 0 ? `blur(${12 * scrollProgress}px) saturate(180%)` : "none",
+              }
+            : undefined
+        }
+        className={`fixed inset-x-0 top-0 z-50 border-b transition-colors duration-200 ${
+          isHome
+            ? "border-transparent"
+            : "border-slate-200 bg-white/90 shadow-sm backdrop-blur-xl"
         }`}
       >
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
 
           {/* Logo */}
           <Link href="/" className="group flex items-center gap-2.5">
-            <div className="relative h-9 w-9 overflow-hidden rounded-xl shadow-md shadow-primary/30 transition-transform duration-200 group-hover:scale-105">
+            <div className="relative h-9 w-9 overflow-hidden rounded-xl shadow-md shadow-primary/30 ring-1 ring-white/10 transition-transform duration-200 group-hover:scale-105">
               <Image src="/logo.png" alt="VIMS Events" fill className="object-cover" priority />
             </div>
             <span
-              className={`text-lg font-extrabold tracking-tight transition-colors duration-300 drop-shadow-sm ${
-                transparent ? "text-white" : "text-foreground"
+              className={`text-lg font-extrabold tracking-tight transition-colors duration-300 ${
+                transparent
+                  ? "text-white [text-shadow:_0_1px_8px_rgba(0,0,0,0.35)]"
+                  : "text-foreground"
               }`}
             >
               VIMS{" "}
-              <span className={transparent ? "text-violet-300" : "text-primary"}>
+              <span className={transparent ? "text-emerald-300" : "text-primary"}>
                 Events
               </span>
             </span>
@@ -72,7 +92,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
                 href={href}
                 className={`rounded-xl px-3.5 py-2 text-sm font-medium transition-all duration-200 ${
                   transparent
-                    ? "text-white/85 hover:text-white hover:bg-white/10"
+                    ? "text-white/90 hover:text-white hover:bg-white/10 [text-shadow:_0_1px_4px_rgba(0,0,0,0.3)]"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted"
                 }`}
               >
@@ -151,7 +171,9 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
             {/* Mobile hamburger */}
             <button
               onClick={() => setMenuOpen((v) => !v)}
-              aria-label="Toggle menu"
+              aria-label={menuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={menuOpen}
+              aria-controls="mobile-nav"
               className={`md:hidden rounded-xl p-2 transition-colors duration-200 ${
                 transparent ? "text-white hover:bg-white/10" : "text-foreground hover:bg-muted"
               }`}
@@ -168,6 +190,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
 
         {/* Mobile menu */}
         <div
+          id="mobile-nav"
           className={`md:hidden overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
             menuOpen ? "max-h-64 border-t border-white/10 bg-slate-900/95 backdrop-blur-xl" : "max-h-0"
           }`}

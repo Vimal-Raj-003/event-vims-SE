@@ -133,6 +133,21 @@ export const NETWORKING_GOALS = [
   'General Networking',
 ] as const;
 
+export const SERVICES_OFFERED = [
+  'AI & ML',
+  'Cloud Computing',
+  'Web Development',
+  'Mobile Apps',
+  'Cybersecurity',
+  'Data Analytics',
+  'DevOps',
+  'UI/UX Design',
+  'Digital Marketing',
+  'Consulting',
+  'IoT',
+  'Blockchain',
+] as const;
+
 export const DATA_RETENTION = {
   DEFAULT_MONTHS_POST_EVENT: 12,
   DELETION_COOLING_PERIOD_DAYS: 30,

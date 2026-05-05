@@ -30,7 +30,7 @@ export default function WizardPage() {
 
       if (currentStep === 4) {
         setProfileCompleted(true);
-        router.replace("/dashboard");
+        router.replace("/home");
         return;
       }
 

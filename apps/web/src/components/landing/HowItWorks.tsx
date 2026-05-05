@@ -66,7 +66,7 @@ export function HowItWorks() {
   return (
     <section
       id="how-it-works"
-      className="relative bg-white py-24 lg:py-32 scroll-mt-20 overflow-hidden"
+      className="relative bg-white py-14 lg:py-20 scroll-mt-20 overflow-hidden"
     >
       <div
         ref={ref}
@@ -84,6 +84,186 @@ export function HowItWorks() {
           <p className="text-base sm:text-lg text-slate-600 leading-relaxed">
             Whether you run the event or attend it, the path is short and the wins are measurable.
           </p>
+        </div>
+
+        {/* Journey infographic: organiser path meets attendee path at the connection node */}
+        <div
+          aria-hidden="true"
+          className="relative hidden lg:block mb-14 select-none"
+        >
+          {/* Top labels (above the line so they never collide with endpoints) */}
+          <div className="relative z-10 flex items-end justify-between mb-3 px-4">
+            <div className="flex flex-col items-start gap-1">
+              <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-700">Organiser</span>
+              <span className="text-xs text-slate-500">Sets up &amp; tracks ROI</span>
+            </div>
+            <div className="flex flex-col items-end gap-1">
+              <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-indigo-700">Attendee</span>
+              <span className="text-xs text-slate-500">Joins &amp; connects</span>
+            </div>
+          </div>
+
+          {/* The journey graphic */}
+          <div className="relative h-24">
+            <svg
+              viewBox="0 0 1000 100"
+              preserveAspectRatio="none"
+              className="absolute inset-0 h-full w-full overflow-visible"
+              fill="none"
+            >
+              <defs>
+                <linearGradient id="orgPath" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor="#10b981" stopOpacity="0.6" />
+                  <stop offset="100%" stopColor="#10b981" />
+                </linearGradient>
+                <linearGradient id="attPath" x1="1" y1="0" x2="0" y2="0">
+                  <stop offset="0%" stopColor="#6366f1" stopOpacity="0.6" />
+                  <stop offset="100%" stopColor="#6366f1" />
+                </linearGradient>
+                <radialGradient id="hubAura" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="#10b981" stopOpacity="0.25" />
+                  <stop offset="50%" stopColor="#6366f1" stopOpacity="0.18" />
+                  <stop offset="100%" stopColor="#6366f1" stopOpacity="0" />
+                </radialGradient>
+                <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+                  <feGaussianBlur stdDeviation="3" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
+
+              {/* Organiser path — proper round dots (not dashes) */}
+              <path
+                d="M 80 50 C 220 50, 340 50, 470 50"
+                stroke="#10b981"
+                strokeWidth="2.5"
+                strokeDasharray="0 11"
+                strokeLinecap="round"
+                opacity="0.55"
+              />
+              {/* Attendee path — proper round dots */}
+              <path
+                d="M 920 50 C 780 50, 660 50, 530 50"
+                stroke="#6366f1"
+                strokeWidth="2.5"
+                strokeDasharray="0 11"
+                strokeLinecap="round"
+                opacity="0.55"
+              />
+              {/* Solid colored leader near each endpoint to anchor the eye */}
+              <path
+                d="M 80 50 C 130 50, 170 50, 200 50"
+                stroke="url(#orgPath)"
+                strokeWidth="2"
+                strokeLinecap="round"
+                opacity="0.35"
+              />
+              <path
+                d="M 920 50 C 870 50, 830 50, 800 50"
+                stroke="url(#attPath)"
+                strokeWidth="2"
+                strokeLinecap="round"
+                opacity="0.35"
+              />
+
+              {/* Center hub glow */}
+              <circle cx="500" cy="50" r="55" fill="url(#hubAura)" />
+
+              {/* Slow rotating outer ring (live-activity feel) */}
+              <g transform="translate(500 50)">
+                <circle r="30" fill="none" stroke="#cbd5e1" strokeWidth="1" strokeDasharray="3 4" opacity="0.6">
+                  <animateTransform
+                    attributeName="transform"
+                    type="rotate"
+                    from="0"
+                    to="360"
+                    dur="20s"
+                    repeatCount="indefinite"
+                  />
+                </circle>
+              </g>
+
+              {/* Pulse ring */}
+              <circle cx="500" cy="50" r="22" fill="none" stroke="#10b981" strokeWidth="1.5" opacity="0.55">
+                <animate attributeName="r" values="22;42" dur="2.6s" repeatCount="indefinite" />
+                <animate attributeName="opacity" values="0.55;0" dur="2.6s" repeatCount="indefinite" />
+              </circle>
+
+              {/* Hub disc */}
+              <circle cx="500" cy="50" r="22" fill="white" stroke="#e2e8f0" strokeWidth="1.5" filter="url(#softGlow)" />
+
+              {/* Connection icon — two interlocking rings (one in each accent color) */}
+              <g transform="translate(500 50)" fill="none" strokeWidth="2" strokeLinecap="round">
+                {/* Emerald ring (left) */}
+                <circle cx="-3.5" cy="0" r="5.5" stroke="#10b981" />
+                {/* Indigo ring (right) */}
+                <circle cx="3.5" cy="0" r="5.5" stroke="#6366f1" />
+                {/* Tiny center accent — the connection point */}
+                <circle cx="0" cy="0" r="1.4" fill="#0f172a" stroke="none" />
+              </g>
+
+              {/* Endpoint: Organiser (briefcase glyph) */}
+              <g transform="translate(50 50)">
+                <circle r="18" fill="white" stroke="#10b981" strokeWidth="2" />
+                <g stroke="#10b981" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none">
+                  <rect x="-7" y="-4" width="14" height="9" rx="1.5" />
+                  <path d="M -3 -4 V -6 H 3 V -4" />
+                  <path d="M -7 0 H 7" />
+                </g>
+              </g>
+
+              {/* Endpoint: Attendee (person glyph) */}
+              <g transform="translate(950 50)">
+                <circle r="18" fill="white" stroke="#6366f1" strokeWidth="2" />
+                <g stroke="#6366f1" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none">
+                  <circle cx="0" cy="-3" r="3" />
+                  <path d="M -6 7 C -6 3, -3 1, 0 1 C 3 1, 6 3, 6 7" />
+                </g>
+              </g>
+
+              {/* Animated traveling pulse dots with trailing glow */}
+              <circle r="5" fill="#10b981" filter="url(#softGlow)">
+                <animateMotion dur="2.6s" repeatCount="indefinite" path="M 80 50 C 220 50, 340 50, 470 50" />
+                <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.1;0.85;1" dur="2.6s" repeatCount="indefinite" />
+              </circle>
+              <circle r="3" fill="#10b981" opacity="0.5">
+                <animateMotion dur="2.6s" begin="0.15s" repeatCount="indefinite" path="M 80 50 C 220 50, 340 50, 470 50" />
+                <animate attributeName="opacity" values="0;0.5;0.5;0" keyTimes="0;0.1;0.85;1" dur="2.6s" begin="0.15s" repeatCount="indefinite" />
+              </circle>
+
+              <circle r="5" fill="#6366f1" filter="url(#softGlow)">
+                <animateMotion dur="2.6s" begin="1.3s" repeatCount="indefinite" path="M 920 50 C 780 50, 660 50, 530 50" />
+                <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.1;0.85;1" dur="2.6s" begin="1.3s" repeatCount="indefinite" />
+              </circle>
+              <circle r="3" fill="#6366f1" opacity="0.5">
+                <animateMotion dur="2.6s" begin="1.45s" repeatCount="indefinite" path="M 920 50 C 780 50, 660 50, 530 50" />
+                <animate attributeName="opacity" values="0;0.5;0.5;0" keyTimes="0;0.1;0.85;1" dur="2.6s" begin="1.45s" repeatCount="indefinite" />
+              </circle>
+            </svg>
+
+            {/* Center "Connection" pill — anchored above, not on the line */}
+            <div className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-3">
+              <div className="relative">
+                <div className="absolute -inset-2 rounded-full bg-gradient-to-r from-emerald-400/30 via-white to-indigo-400/30 blur-md" />
+                <div className="relative inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-700 shadow-sm">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  </span>
+                  Connection
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom timing strip */}
+          <div className="relative mt-3 flex items-center justify-between px-4 text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+            <span>5 min</span>
+            <span>Live event</span>
+            <span>2 sec</span>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">

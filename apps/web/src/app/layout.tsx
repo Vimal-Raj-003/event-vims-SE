@@ -12,7 +12,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "VIMS Events — Smart Networking for Every Event",
+    default: "VIMS Events: Smart Networking for Every Event",
     template: "%s | VIMS Events",
   },
   description:
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     locale: "en_GB",
     url: "https://vims.events",
     siteName: "VIMS Events",
-    title: "VIMS Events — Smart Networking for Every Event",
+    title: "VIMS Events: Smart Networking for Every Event",
     description:
       "Create unforgettable networking experiences with smart digital business cards and live attendee directories.",
     images: [
@@ -41,13 +41,13 @@ export const metadata: Metadata = {
         url: "/images/og-banner.png",
         width: 1200,
         height: 630,
-        alt: "VIMS Events — Smart Networking Platform",
+        alt: "VIMS Events: Smart Networking Platform",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "VIMS Events — Smart Networking for Every Event",
+    title: "VIMS Events: Smart Networking for Every Event",
     description:
       "Create unforgettable networking experiences with smart digital business cards and live attendee directories.",
     images: ["/images/og-banner.png"],

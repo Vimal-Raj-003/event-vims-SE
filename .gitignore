@@ -2,7 +2,11 @@ node_modules/
 dist/
 .next/
 .env
-.env*.local
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
 *.log
 .turbo/
 coverage/
@@ -12,4 +16,17 @@ Thumbs.db
 
 # Claude Code memory
 .claude/
-.claude/
+
+# IDE / editor
+.vscode/
+.idea/
+
+# Local test & planning artefacts (should not be committed)
+.playwright-mcp/
+.superpowers/
+
+# Root-level screenshots from manual / Playwright runs
+/*.png
+
+# Uploaded files (user content, not source)
+apps/api/uploads/

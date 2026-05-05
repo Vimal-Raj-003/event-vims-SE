@@ -23,7 +23,7 @@ export function PricingSimple() {
   };
 
   return (
-    <section id="pricing" className="relative bg-gray-50 py-24 lg:py-32 scroll-mt-20 overflow-hidden">
+    <section id="pricing" className="relative bg-white py-14 lg:py-20 scroll-mt-20 overflow-hidden">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute top-1/2 -left-20 h-[300px] w-[300px] -translate-y-1/2 rounded-full bg-emerald-200/20 blur-[120px]"
@@ -43,7 +43,7 @@ export function PricingSimple() {
             Free during beta
           </h2>
           <p className="text-base sm:text-lg text-slate-600 leading-relaxed">
-            We&apos;ll lock pricing when we exit beta. Drop your email and we&apos;ll let you know — no spam, no auto-charges.
+            We&apos;ll lock pricing when we exit beta. Drop your email and we&apos;ll let you know. No spam, no auto-charges.
           </p>
         </div>
 
@@ -106,7 +106,7 @@ export function PricingSimple() {
                 </p>
               )}
               <p className="text-xs text-slate-500 mt-3">
-                We&apos;ll only email once — when pricing locks.
+                We&apos;ll only email once, when pricing locks.
               </p>
             </form>
           )}

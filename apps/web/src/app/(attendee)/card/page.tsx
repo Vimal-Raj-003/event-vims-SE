@@ -8,7 +8,7 @@ import { GlassCard } from "@/components/GlassCard";
 import { ShareDrawer } from "@/components/ShareDrawer";
 
 export default function CardPage() {
-  const { user, activeEventId } = useAuthStore();
+  const { user } = useAuthStore();
   const { data: card, isLoading: cardLoading } = useBusinessCard();
   const { data: status } = useProfileStatus();
   const [shareOpen, setShareOpen] = useState(false);

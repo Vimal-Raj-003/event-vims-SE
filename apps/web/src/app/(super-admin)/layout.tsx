@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import { useAuthStore } from "@/lib/stores/auth-store";
-import { apiClient } from "@/lib/api-client";
+import { apiClient, clearStoredTokens } from "@/lib/api-client";
 import ThemeToggle from "@/components/ThemeToggle";
 
 const ADMIN_PAGE_META: Record<string, { title: string; subtitle: string }> = {
@@ -76,8 +76,9 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
 
   // Auth guard — redirect to login if not authenticated
   useEffect(() => {
-    const tokens = localStorage.getItem("vims:auth");
-    if (!tokens && !user) {
+    const auth = localStorage.getItem("vims:auth");
+    const tokens = localStorage.getItem("vims:tokens");
+    if (!auth && !tokens && !user) {
       router.replace("/auth/super-admin/login");
     }
   }, [user, router]);
@@ -102,6 +103,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
   async function handleLogout() {
     try { await apiClient.post("/auth/logout"); } catch { /* ignore */ }
     logoutStore();
+    clearStoredTokens();
     router.push("/auth/super-admin/login");
   }
 

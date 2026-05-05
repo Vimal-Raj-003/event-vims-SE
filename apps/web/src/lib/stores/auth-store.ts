@@ -10,6 +10,7 @@ interface User {
   role: UserRole;
   avatarUrl?: string;
   organisation?: string;
+  eventId?: string;
 }
 
 interface AuthState {
@@ -54,6 +55,9 @@ export const useAuthStore = create<AuthState>()(
           refreshToken,
           isAuthenticated: true,
           profileCompleted: profileCompleted ?? false,
+          // Keep activeEventId in sync for attendees so suggestions/home
+          // queries continue to work after token-refresh-driven re-auth.
+          ...(user.eventId ? { activeEventId: user.eventId } : {}),
         }),
 
       logout: () =>

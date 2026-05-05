@@ -16,19 +16,25 @@ const envSchema = z.object({
   JWT_ACCESS_EXPIRY: z.string().default('15m'),
   JWT_REFRESH_EXPIRY: z.string().default('7d'),
 
-  RESEND_API_KEY: z.string().min(1, 'RESEND_API_KEY is required'),
+  // Email — Zoho SMTP (via nodemailer). Legacy Resend kept optional for backward compat.
+  MAIL_SERVER: z.string().optional(),
+  MAIL_PORT: z.coerce.number().optional(),
+  MAIL_USERNAME: z.string().optional(),
+  MAIL_PASSWORD: z.string().optional(),
+  MAIL_USE_SSL: z.coerce.boolean().optional(),
+  RESEND_API_KEY: z.string().optional(),
   EMAIL_FROM_ADDRESS: z.string().email().default('noreply@vims.events'),
   EMAIL_FROM_NAME: z.string().default('VIMS Events'),
 
-  R2_ACCOUNT_ID: z.string().min(1),
-  R2_ACCESS_KEY_ID: z.string().min(1),
-  R2_SECRET_ACCESS_KEY: z.string().min(1),
-  R2_BUCKET_NAME: z.string().min(1),
-  R2_PUBLIC_URL: z.string().url(),
+  R2_ACCOUNT_ID: z.string().optional(),
+  R2_ACCESS_KEY_ID: z.string().optional(),
+  R2_SECRET_ACCESS_KEY: z.string().optional(),
+  R2_BUCKET_NAME: z.string().optional(),
+  R2_PUBLIC_URL: z.string().url().optional(),
 
-  VAPID_PUBLIC_KEY: z.string().min(1),
-  VAPID_PRIVATE_KEY: z.string().min(1),
-  VAPID_SUBJECT: z.string().email(),
+  VAPID_PUBLIC_KEY: z.string().optional(),
+  VAPID_PRIVATE_KEY: z.string().optional(),
+  VAPID_SUBJECT: z.string().email().optional(),
 
   CORS_ORIGIN: z.string().default('*'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
@@ -94,7 +100,7 @@ export class AppConfigService {
   }
 
   get resendApiKey(): string {
-    return this.envConfig.RESEND_API_KEY;
+    return this.envConfig.RESEND_API_KEY ?? '';
   }
 
   get emailFromAddress(): string {
@@ -106,35 +112,35 @@ export class AppConfigService {
   }
 
   get r2AccountId(): string {
-    return this.envConfig.R2_ACCOUNT_ID;
+    return this.envConfig.R2_ACCOUNT_ID ?? '';
   }
 
   get r2AccessKeyId(): string {
-    return this.envConfig.R2_ACCESS_KEY_ID;
+    return this.envConfig.R2_ACCESS_KEY_ID ?? '';
   }
 
   get r2SecretAccessKey(): string {
-    return this.envConfig.R2_SECRET_ACCESS_KEY;
+    return this.envConfig.R2_SECRET_ACCESS_KEY ?? '';
   }
 
   get r2BucketName(): string {
-    return this.envConfig.R2_BUCKET_NAME;
+    return this.envConfig.R2_BUCKET_NAME ?? '';
   }
 
   get r2PublicUrl(): string {
-    return this.envConfig.R2_PUBLIC_URL;
+    return this.envConfig.R2_PUBLIC_URL ?? '';
   }
 
   get vapidPublicKey(): string {
-    return this.envConfig.VAPID_PUBLIC_KEY;
+    return this.envConfig.VAPID_PUBLIC_KEY ?? '';
   }
 
   get vapidPrivateKey(): string {
-    return this.envConfig.VAPID_PRIVATE_KEY;
+    return this.envConfig.VAPID_PRIVATE_KEY ?? '';
   }
 
   get vapidSubject(): string {
-    return this.envConfig.VAPID_SUBJECT;
+    return this.envConfig.VAPID_SUBJECT ?? '';
   }
 
   get corsOrigin(): string {

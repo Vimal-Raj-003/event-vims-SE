@@ -251,11 +251,11 @@ export class AuthService {
     const tokens = await this.generateTokenPair({
       sub: admin.id,
       email: admin.email,
-      role: 'super_admin',
+      role: 'super-admin',
       isSuperAdmin: true,
     });
 
-    await this.storeRefreshToken(admin.id, 'super_admin', tokens.refreshToken);
+    await this.storeRefreshToken(admin.id, 'super-admin', tokens.refreshToken);
 
     this.logger.log(`Super Admin logged in: ${admin.email}`);
 
@@ -265,7 +265,7 @@ export class AuthService {
         id: admin.id,
         email: admin.email,
         name: admin.name,
-        role: 'super_admin',
+        role: 'super-admin',
       },
     };
   }

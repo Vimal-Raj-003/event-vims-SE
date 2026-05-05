@@ -54,6 +54,7 @@
 
   html {
     scroll-behavior: smooth;
+    scroll-padding-top: 5rem;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
@@ -148,6 +149,40 @@
   transform-origin: 50% 40%;
   will-change: transform;
 }
+
+/* ─── Hero slideshow motion variants ──────────────────────────────────
+   Each variant runs ~14s — long enough that motion is subtle, short
+   enough that it's visible during a slide's 7s on-screen window. */
+@keyframes heroZoomIn {
+  from { transform: scale(1.02) translate(0, 0); }
+  to   { transform: scale(1.10) translate(-1.5%, -1%); }
+}
+@keyframes heroZoomOut {
+  from { transform: scale(1.10) translate(1%, 0.5%); }
+  to   { transform: scale(1.02) translate(0, 0); }
+}
+@keyframes heroPanRight {
+  from { transform: scale(1.06) translate(-2%, 0); }
+  to   { transform: scale(1.06) translate(2%, -0.5%); }
+}
+@keyframes heroPanLeft {
+  from { transform: scale(1.06) translate(2%, 0); }
+  to   { transform: scale(1.06) translate(-2%, 0.5%); }
+}
+.animate-hero-zoom-in   { animation: heroZoomIn   14s ease-out infinite alternate; transform-origin: 50% 40%; will-change: transform; }
+.animate-hero-zoom-out  { animation: heroZoomOut  14s ease-out infinite alternate; transform-origin: 50% 40%; will-change: transform; }
+.animate-hero-pan-right { animation: heroPanRight 14s ease-in-out infinite alternate; transform-origin: 50% 40%; will-change: transform; }
+.animate-hero-pan-left  { animation: heroPanLeft  14s ease-in-out infinite alternate; transform-origin: 50% 40%; will-change: transform; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-hero-zoom-in,
+  .animate-hero-zoom-out,
+  .animate-hero-pan-right,
+  .animate-hero-pan-left {
+    animation: none;
+    transform: scale(1.04);
+  }
+}
 .animate-notif-slide-in {
   opacity: 0;
   animation: notifSlideIn 0.5s ease-out 1.2s forwards;
@@ -165,6 +200,143 @@
 
 .bg-dark-section {
   background-color: hsl(222 47% 8%);
+}
+
+/* ─── Hero "Measurable Connection" adaptive underline ─────────────────
+   Renders a smooth wavy gradient under the highlighted phrase that
+   *naturally* matches the text width across every breakpoint. The
+   wave is drawn as an inline SVG background so it scales with the
+   parent's box; the draw-on animation uses clip-path. */
+.hero-measurable {
+  --hero-ul-thickness: 0.18em;
+}
+.hero-measurable::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -0.42em;
+  height: var(--hero-ul-thickness);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 12' preserveAspectRatio='none'><defs><linearGradient id='g' x1='0' y1='0' x2='400' y2='0' gradientUnits='userSpaceOnUse'><stop stop-color='%2334d399'/><stop offset='0.5' stop-color='%235eead4'/><stop offset='1' stop-color='%2310b981'/></linearGradient></defs><path d='M2 8 Q80 2 160 6 Q240 10 320 4 Q360 2 398 6' stroke='url(%23g)' stroke-width='3' stroke-linecap='round' fill='none'/></svg>");
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  clip-path: inset(0 100% 0 0);
+  animation: heroULReveal 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.6s forwards;
+  pointer-events: none;
+}
+@keyframes heroULReveal {
+  from { clip-path: inset(0 100% 0 0); }
+  to   { clip-path: inset(0 0 0 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-measurable::after {
+    animation: none;
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* ─── Proof-strip card animations ──────────────────────────────────── */
+@keyframes proofReveal {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes barGrowFull {
+  to { width: 100%; }
+}
+@keyframes barGrowSmall {
+  to { width: 4%; }
+}
+@keyframes liveBar {
+  0%   { transform: scaleY(0.55); }
+  100% { transform: scaleY(1); }
+}
+@keyframes checkInLeft {
+  from { opacity: 0; transform: translateX(-6px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ─── ProofMoments carousel (3 unique scale-based entry animations) ── */
+@keyframes proofZoom {
+  0%   { opacity: 0; transform: scale(0.88) translateY(8px); filter: blur(4px); }
+  60%  { opacity: 1; filter: blur(0); }
+  100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+}
+@keyframes proofBounce {
+  0%   { opacity: 0; transform: scale(1.08) translateY(-6px); }
+  55%  { opacity: 1; transform: scale(0.98) translateY(0); }
+  80%  { transform: scale(1.01); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes proofTilt {
+  0%   { opacity: 0; transform: scale(0.92) rotate(-2.5deg) translateY(6px); }
+  50%  { opacity: 1; }
+  100% { opacity: 1; transform: scale(1) rotate(0) translateY(0); }
+}
+.proof-anim-zoom   { animation: proofZoom   620ms cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+.proof-anim-bounce { animation: proofBounce 700ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+.proof-anim-tilt   { animation: proofTilt   620ms cubic-bezier(0.16, 1, 0.3, 1) forwards; transform-origin: 60% 50%; }
+
+/* Dot indicator progress fill (matches CYCLE_MS in component) */
+@keyframes dotProgress {
+  to { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .proof-anim-zoom,
+  .proof-anim-bounce,
+  .proof-anim-tilt {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+/* ─── Hero 3D iPhone animations ─────────────────────────────────────── */
+@keyframes phoneFloat {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-8px); }
+}
+.animate-phone-float {
+  animation: phoneFloat 6s ease-in-out infinite;
+}
+@keyframes glassSweep {
+  0%   { transform: translateX(-120%) rotate(12deg); opacity: 0; }
+  20%  { opacity: 1; }
+  60%  { opacity: 1; }
+  100% { transform: translateX(220%) rotate(12deg); opacity: 0; }
+}
+.animate-glass-sweep {
+  animation: glassSweep 7s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  animation-delay: 2s;
+}
+@keyframes notifIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-notif-1 {
+  opacity: 0;
+  animation: notifIn 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.4s forwards;
+}
+.animate-notif-2 {
+  opacity: 0;
+  animation: notifIn 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.95s forwards;
+}
+.animate-notif-3 {
+  opacity: 0;
+  animation: notifIn 0.55s cubic-bezier(0.16, 1, 0.3, 1) 1.6s forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-phone-float,
+  .animate-glass-sweep {
+    animation: none;
+  }
+  .animate-notif-1,
+  .animate-notif-2,
+  .animate-notif-3 {
+    opacity: 1;
+    animation: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

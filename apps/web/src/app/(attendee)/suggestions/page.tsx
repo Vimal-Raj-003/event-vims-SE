@@ -41,7 +41,7 @@ export default function SuggestionsPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {suggestions.map((suggestion: { attendee: { id: string }; score: number; reasons: string[] }) => (
+          {suggestions.map((suggestion: any) => (
             <SuggestionCard
               key={suggestion.attendee.id}
               attendee={suggestion.attendee}
