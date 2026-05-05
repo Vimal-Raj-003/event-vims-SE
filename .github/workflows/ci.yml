@@ -17,6 +17,12 @@ jobs:
           node-version: 20
           cache: 'npm'
       - run: npm ci
+      # Generate the Prisma client so all Prisma-derived types
+      # (EventStatus, ConnectionStatus, Prisma.AttendeeWhereInput, etc.)
+      # are available before tsc runs. Belt + suspenders: postinstall in
+      # apps/api also runs `prisma generate`, but explicit step here keeps
+      # CI deterministic if npm ever changes postinstall behaviour.
+      - run: npm run db:generate --workspace=apps/api
       - run: npx turbo lint type-check
 
   test:
@@ -30,6 +36,7 @@ jobs:
           node-version: 20
           cache: 'npm'
       - run: npm ci
+      - run: npm run db:generate --workspace=apps/api
       - run: npx turbo test
 
   build:
@@ -43,4 +50,5 @@ jobs:
           node-version: 20
           cache: 'npm'
       - run: npm ci
+      - run: npm run db:generate --workspace=apps/api
       - run: npx turbo build

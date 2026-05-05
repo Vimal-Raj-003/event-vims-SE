@@ -19,7 +19,7 @@
  *     the previous account.
  */
 
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import * as bcrypt from "bcrypt";
 
 const prisma = new PrismaClient();
@@ -52,7 +52,7 @@ async function main() {
 
   // Wipe and replace inside one transaction so we never end up with zero
   // super admins if the create fails for any reason.
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const before = await tx.superAdmin.count();
     await tx.superAdmin.deleteMany({});
     const created = await tx.superAdmin.create({
