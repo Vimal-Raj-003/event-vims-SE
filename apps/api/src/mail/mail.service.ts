@@ -32,28 +32,42 @@ export class MailService {
   }
 
   /**
+   * Read the platform name from live PlatformSettings, falling back to
+   * "VIMS Events" on failure with a warn log. Used by the From header and
+   * the body templates where a fallback brand is preferable to a missing
+   * brand. NOT used by formatSubject — that helper deliberately falls
+   * back to the raw subject (no prefix) on settings failure so we don't
+   * stamp "[VIMS Events]" onto emails when the actual brand may be
+   * something else.
+   */
+  private async getPlatformNameOrFallback(): Promise<string> {
+    try {
+      const settings = await this.platformSettings.get();
+      return settings.platformName;
+    } catch {
+      this.logger.warn(
+        'Failed to read platform settings; using fallback platform name',
+      );
+      return FALLBACK_PLATFORM_NAME;
+    }
+  }
+
+  /**
    * Build the From header from live PlatformSettings.
-   * Falls back to "VIMS Events" if the settings read fails — emails must
-   * never fail because of a settings read.
+   * Falls back to "VIMS Events" via getPlatformNameOrFallback if the
+   * settings read fails — emails must never fail because of a settings read.
    */
   async buildFromHeader(): Promise<string> {
     const fromAddress = this.configService.get<string>('MAIL_USERNAME');
-    let name = FALLBACK_PLATFORM_NAME;
-    try {
-      const settings = await this.platformSettings.get();
-      name = settings.platformName;
-    } catch {
-      this.logger.warn(
-        'Failed to read platform settings for from header; using fallback',
-      );
-    }
+    const name = await this.getPlatformNameOrFallback();
     return `"${name}" <${fromAddress}>`;
   }
 
   /**
    * Prefix non-OTP subjects with [platformName]. OTP subjects are left
    * unchanged so the short code stays visible in mobile previews.
-   * Falls back to the raw subject if the settings read fails.
+   * Falls back to the raw subject (no prefix) if the settings read fails,
+   * so we don't risk mis-branding outgoing email under uncertainty.
    */
   async formatSubject(rawSubject: string, isOtp: boolean): Promise<string> {
     if (isOtp) return rawSubject;
@@ -61,11 +75,15 @@ export class MailService {
       const settings = await this.platformSettings.get();
       return `[${settings.platformName}] ${rawSubject}`;
     } catch {
+      this.logger.warn(
+        'Failed to read platform settings for subject prefix; using raw subject',
+      );
       return rawSubject;
     }
   }
 
   async sendOtpEmail(to: string, otp: string, eventName: string): Promise<void> {
+    const platformName = await this.getPlatformNameOrFallback();
     try {
       await this.transporter.sendMail({
         from: await this.buildFromHeader(),
@@ -74,7 +92,7 @@ export class MailService {
           `Your login code for ${this.escapeHtml(eventName)}`,
           true,
         ),
-        html: this.otpTemplate(otp, eventName),
+        html: this.otpTemplate(otp, eventName, platformName),
       });
       this.logger.log(`OTP email sent to ${to}`);
     } catch (error) {
@@ -88,12 +106,13 @@ export class MailService {
   async sendVerificationEmail(to: string, token: string): Promise<void> {
     const frontendUrl = this.configService.get<string>('NEXT_PUBLIC_APP_URL', 'http://localhost:3000');
     const verifyUrl = `${frontendUrl}/auth/organiser/verify?token=${encodeURIComponent(token)}&email=${encodeURIComponent(to)}`;
+    const platformName = await this.getPlatformNameOrFallback();
     try {
       await this.transporter.sendMail({
         from: await this.buildFromHeader(),
         to,
         subject: await this.formatSubject('Verify your email', false),
-        html: this.verificationTemplate(verifyUrl),
+        html: this.verificationTemplate(verifyUrl, platformName),
       });
       this.logger.log(`Verification email sent to ${to}`);
     } catch (error) {
@@ -169,13 +188,14 @@ export class MailService {
       .replace(/'/g, '&#39;');
   }
 
-  private otpTemplate(otp: string, eventName: string): string {
+  private otpTemplate(otp: string, eventName: string, platformName: string): string {
     const safeEvent = this.escapeHtml(eventName);
     const safeOtp = this.escapeHtml(otp);
+    const safePlatform = this.escapeHtml(platformName);
     return `
       <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
         <div style="text-align: center; margin-bottom: 24px;">
-          <h2 style="color: #6366f1; margin: 0;">VIMS Events</h2>
+          <h2 style="color: #6366f1; margin: 0;">${safePlatform}</h2>
           <p style="color: #64748b; font-size: 14px; margin-top: 4px;">Your event networking platform</p>
         </div>
         <div style="background: #f8fafc; border-radius: 12px; padding: 24px; text-align: center;">
@@ -195,11 +215,12 @@ export class MailService {
       </div>`;
   }
 
-  private verificationTemplate(verifyUrl: string): string {
+  private verificationTemplate(verifyUrl: string, platformName: string): string {
+    const safePlatform = this.escapeHtml(platformName);
     return `
       <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
         <div style="text-align: center; margin-bottom: 24px;">
-          <h2 style="color: #6366f1; margin: 0;">VIMS Events</h2>
+          <h2 style="color: #6366f1; margin: 0;">${safePlatform}</h2>
         </div>
         <div style="background: #f8fafc; border-radius: 12px; padding: 24px; text-align: center;">
           <p style="color: #334155; font-size: 15px; margin: 0 0 20px 0;">
