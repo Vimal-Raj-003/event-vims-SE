@@ -5,21 +5,38 @@ import Link from "next/link";
 import { apiClient } from "@/lib/api-client";
 import { useRouter } from "next/navigation";
 
+type ResendStatus = "idle" | "sending" | "sent" | "error";
+
 export default function OrganiserSignupPage() {
   const router = useRouter();
   const [form, setForm] = useState({ name: "", organisation: "", email: "", mobile: "", password: "", confirmPassword: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [emailExists, setEmailExists] = useState(false);
+  const [resendStatus, setResendStatus] = useState<ResendStatus>("idle");
+  const [resendMessage, setResendMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
   const f = (id: keyof typeof form) => ({
     value: form[id],
-    onChange: (e: React.ChangeEvent<HTMLInputElement>) => setForm((p) => ({ ...p, [id]: e.target.value })),
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+      setForm((p) => ({ ...p, [id]: e.target.value }));
+      // Clear the duplicate-email banner once the user edits the email field.
+      if (id === "email" && emailExists) {
+        setEmailExists(false);
+        setError("");
+        setResendStatus("idle");
+        setResendMessage("");
+      }
+    },
   });
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setEmailExists(false);
+    setResendStatus("idle");
+    setResendMessage("");
     if (form.password !== form.confirmPassword) { setError("Passwords do not match."); return; }
     if (form.password.length < 8) { setError("Password must be at least 8 characters."); return; }
     setLoading(true);
@@ -30,10 +47,47 @@ export default function OrganiserSignupPage() {
       });
       router.push(`/auth/organiser/verify?email=${encodeURIComponent(form.email)}&sent=1`);
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setError(msg ?? "Something went wrong. Please try again.");
+      const axiosErr = err as { response?: { status?: number; data?: { message?: string } } };
+      const msg = axiosErr.response?.data?.message;
+      if (axiosErr.response?.status === 409) {
+        setEmailExists(true);
+        setError(msg ?? "An account with this email already exists.");
+      } else {
+        setError(msg ?? "Something went wrong. Please try again.");
+      }
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleResendVerification() {
+    if (!form.email.includes("@")) {
+      setResendStatus("error");
+      setResendMessage("Enter a valid email address first.");
+      return;
+    }
+    setResendStatus("sending");
+    setResendMessage("");
+    try {
+      const res = await apiClient.post<{ message: string; alreadyVerified?: boolean }>(
+        "/auth/organiser/resend-verification",
+        { email: form.email },
+      );
+      if (res?.data?.alreadyVerified) {
+        setResendStatus("sent");
+        setResendMessage("This email is already verified. Redirecting to login…");
+        setTimeout(
+          () => router.push(`/auth/organiser/login?email=${encodeURIComponent(form.email)}`),
+          1500,
+        );
+        return;
+      }
+      setResendStatus("sent");
+      setResendMessage(res?.data?.message ?? "Verification email sent. Check your inbox.");
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setResendStatus("error");
+      setResendMessage(msg ?? "Failed to send verification email.");
     }
   }
 
@@ -52,7 +106,36 @@ export default function OrganiserSignupPage() {
           <svg className="mt-0.5 h-4 w-4 shrink-0 text-destructive" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z" />
           </svg>
-          <p className="text-sm text-destructive">{error}</p>
+          <div className="flex-1 space-y-2">
+            <p className="text-sm text-destructive">{error}</p>
+            {emailExists && (
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                <Link
+                  href={`/auth/organiser/login?email=${encodeURIComponent(form.email)}`}
+                  className="font-semibold text-primary hover:underline"
+                >
+                  Log in instead →
+                </Link>
+                <button
+                  type="button"
+                  onClick={handleResendVerification}
+                  disabled={resendStatus === "sending" || resendStatus === "sent"}
+                  className="font-semibold text-primary hover:underline disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {resendStatus === "sending"
+                    ? "Sending…"
+                    : resendStatus === "sent"
+                      ? "Sent"
+                      : "Resend verification email"}
+                </button>
+              </div>
+            )}
+            {resendMessage && (
+              <p className={`text-xs ${resendStatus === "error" ? "text-destructive" : "text-muted-foreground"}`}>
+                {resendMessage}
+              </p>
+            )}
+          </div>
         </div>
       )}
 

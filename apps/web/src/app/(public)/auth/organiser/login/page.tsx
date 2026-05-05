@@ -1,15 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
 import { apiClient, setStoredTokens } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/stores/auth-store";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
-export default function OrganiserLoginPage() {
+function OrganiserLoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const login = useAuthStore((s) => s.login);
-  const [form, setForm] = useState({ email: "", password: "" });
+  const [form, setForm] = useState({ email: searchParams.get("email") ?? "", password: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -162,5 +163,24 @@ export default function OrganiserLoginPage() {
         </Link>
       </p>
     </div>
+  );
+}
+
+function OrganiserLoginFallback() {
+  return (
+    <div className="animate-in">
+      <div className="mb-8">
+        <h1 className="text-3xl font-extrabold text-foreground tracking-tight">Welcome back</h1>
+        <p className="mt-2 text-muted-foreground">Loading…</p>
+      </div>
+    </div>
+  );
+}
+
+export default function OrganiserLoginPage() {
+  return (
+    <Suspense fallback={<OrganiserLoginFallback />}>
+      <OrganiserLoginContent />
+    </Suspense>
   );
 }
