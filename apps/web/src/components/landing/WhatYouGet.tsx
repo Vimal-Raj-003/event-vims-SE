@@ -1,6 +1,14 @@
 "use client";
 
-import { useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
+import { useAutoSpotlight } from "@/hooks/use-auto-spotlight";
+import { useScrollReveal } from "@/hooks/use-scroll-reveal";
 
 type Role = "organiser" | "attendee";
 
@@ -9,6 +17,8 @@ interface FeatureBlock {
   body: string;
   icon: ReactNode;
 }
+
+const SPOTLIGHT_INTERVAL_MS = 2500;
 
 const ICON_PROPS = {
   className: "h-5 w-5",
@@ -144,6 +154,32 @@ export function WhatYouGet() {
   const organiserMobileRef = useRef<HTMLButtonElement>(null);
   const attendeeMobileRef = useRef<HTMLButtonElement>(null);
 
+  const cardsContainerRef = useRef<HTMLDivElement | null>(null);
+  const [inView, setInView] = useState(false);
+
+  // Track whether the cards container is in view (for cycle pause).
+  useEffect(() => {
+    const node = cardsContainerRef.current;
+    if (!node || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) setInView(entry.isIntersecting);
+      },
+      { threshold: 0.2 },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  const { activeIndex, pause, resume } = useAutoSpotlight({
+    count: blocks.length,
+    intervalMs: SPOTLIGHT_INTERVAL_MS,
+    enabled: inView,
+    resetKey: role,
+  });
+
+  const { ref: revealRef, revealed } = useScrollReveal<HTMLDivElement>();
+
   const switchRoleByKey = (
     e: KeyboardEvent<HTMLButtonElement>,
     surface: "desktop" | "mobile",
@@ -165,22 +201,38 @@ export function WhatYouGet() {
     });
   };
 
+  const accentBorderActive =
+    accent === "emerald" ? "border-emerald-400" : "border-indigo-400";
+  const accentRingActive =
+    accent === "emerald" ? "ring-emerald-100" : "ring-indigo-100";
+  const accentIconBgActive =
+    accent === "emerald" ? "bg-emerald-500 text-white border-emerald-500" : "bg-indigo-500 text-white border-indigo-500";
+  const accentIconBgIdle =
+    accent === "emerald"
+      ? "bg-emerald-50 border-emerald-200 text-emerald-600"
+      : "bg-indigo-50 border-indigo-200 text-indigo-600";
+
   return (
-    <section className="relative bg-dark-section py-20 lg:py-28 overflow-hidden">
+    <section className="relative bg-white py-24 lg:py-32 overflow-hidden">
       <div
-        className="pointer-events-none absolute -top-20 right-0 h-[300px] w-[300px] rounded-full bg-emerald-500/[0.04] blur-[100px] animate-glow-drift"
         aria-hidden="true"
+        className="pointer-events-none absolute -top-20 right-0 h-[300px] w-[300px] rounded-full bg-emerald-200/20 blur-[120px]"
       />
 
-      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div
+        ref={revealRef}
+        className={`relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 transition-all duration-700 ease-out ${
+          revealed ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"
+        }`}
+      >
         <div className="max-w-2xl">
-          <span className="inline-block rounded-full bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.15em] text-emerald-400 mb-3">
+          <span className="inline-block rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.15em] text-emerald-700 mb-3">
             What you get
           </span>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight leading-[1.1] text-balance mb-3">
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 tracking-tight leading-[1.1] text-balance mb-3">
             Built for both sides of the room
           </h2>
-          <p className="text-base sm:text-lg text-white/55 leading-relaxed">
+          <p className="text-base sm:text-lg text-slate-600 leading-relaxed">
             Everything organisers need to run the event, everything attendees need to make it count.
           </p>
         </div>
@@ -188,7 +240,7 @@ export function WhatYouGet() {
         <div
           role="tablist"
           aria-label="Audience"
-          className="hidden sm:flex border-b border-white/[0.08] mt-12 mb-8"
+          className="hidden sm:flex border-b border-slate-200 mt-12 mb-8"
         >
           <button
             ref={organiserDesktopRef}
@@ -199,10 +251,10 @@ export function WhatYouGet() {
             tabIndex={role === "organiser" ? 0 : -1}
             onClick={() => setRole("organiser")}
             onKeyDown={(e) => switchRoleByKey(e, "desktop")}
-            className={`px-4 pb-3 text-sm font-semibold transition-colors -mb-px border-b-2 ${
+            className={`px-4 pb-3 text-sm font-semibold transition-colors -mb-px border-b-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 ${
               role === "organiser"
-                ? "text-white border-emerald-400"
-                : "text-white/40 hover:text-white/70 border-transparent"
+                ? "text-slate-900 border-emerald-500"
+                : "text-slate-500 hover:text-slate-800 border-transparent"
             }`}
           >
             For Organisers
@@ -216,10 +268,10 @@ export function WhatYouGet() {
             tabIndex={role === "attendee" ? 0 : -1}
             onClick={() => setRole("attendee")}
             onKeyDown={(e) => switchRoleByKey(e, "desktop")}
-            className={`px-4 pb-3 text-sm font-semibold transition-colors -mb-px border-b-2 ${
+            className={`px-4 pb-3 text-sm font-semibold transition-colors -mb-px border-b-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${
               role === "attendee"
-                ? "text-white border-indigo-400"
-                : "text-white/40 hover:text-white/70 border-transparent"
+                ? "text-slate-900 border-indigo-500"
+                : "text-slate-500 hover:text-slate-800 border-transparent"
             }`}
           >
             For Attendees
@@ -236,8 +288,8 @@ export function WhatYouGet() {
             tabIndex={role === "organiser" ? 0 : -1}
             onClick={() => setRole("organiser")}
             onKeyDown={(e) => switchRoleByKey(e, "mobile")}
-            className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
-              role === "organiser" ? "bg-emerald-500 text-slate-950" : "bg-white/5 text-white/60"
+            className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 ${
+              role === "organiser" ? "bg-emerald-500 text-white" : "bg-slate-100 text-slate-600"
             }`}
           >
             Organisers
@@ -251,8 +303,8 @@ export function WhatYouGet() {
             tabIndex={role === "attendee" ? 0 : -1}
             onClick={() => setRole("attendee")}
             onKeyDown={(e) => switchRoleByKey(e, "mobile")}
-            className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
-              role === "attendee" ? "bg-indigo-500 text-white" : "bg-white/5 text-white/60"
+            className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${
+              role === "attendee" ? "bg-indigo-500 text-white" : "bg-slate-100 text-slate-600"
             }`}
           >
             Attendees
@@ -263,33 +315,43 @@ export function WhatYouGet() {
           id="features-panel"
           role="tabpanel"
           aria-labelledby={`tab-${role}-d tab-${role}-m`}
+          ref={cardsContainerRef}
+          onMouseEnter={pause}
+          onMouseLeave={resume}
+          onFocusCapture={pause}
+          onBlurCapture={resume}
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5"
         >
-          {blocks.map((b) => (
-            <div
-              key={b.title}
-              className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-6 hover:border-white/[0.15] hover:bg-white/[0.04] transition-colors"
-            >
+          {blocks.map((b, idx) => {
+            const isActive = idx === activeIndex;
+            return (
               <div
-                className={`w-10 h-10 rounded-xl border flex items-center justify-center mb-5 ${
-                  accent === "emerald"
-                    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-                    : "bg-indigo-500/10 border-indigo-500/20 text-indigo-400"
+                key={b.title}
+                className={`rounded-2xl border bg-white p-6 transition-all duration-300 ease-out ${
+                  isActive
+                    ? `${accentBorderActive} shadow-lg ring-4 ${accentRingActive} -translate-y-1`
+                    : "border-slate-200 shadow-sm hover:border-slate-300 hover:shadow"
                 }`}
               >
-                {b.icon}
+                <div
+                  className={`w-10 h-10 rounded-xl border flex items-center justify-center mb-5 transition-colors duration-300 ease-out ${
+                    isActive ? accentIconBgActive : accentIconBgIdle
+                  }`}
+                >
+                  {b.icon}
+                </div>
+                <h3 className="text-base font-semibold text-slate-900 mb-2">{b.title}</h3>
+                <p className="text-sm text-slate-600 leading-relaxed">{b.body}</p>
               </div>
-              <h3 className="text-base font-semibold text-white mb-2">{b.title}</h3>
-              <p className="text-sm text-white/60 leading-relaxed">{b.body}</p>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         <div className="mt-10 text-center">
           {/* TODO: ship full feature matrix in WS 4 or later */}
           <a
             href="/docs/features"
-            className="inline-flex items-center gap-1.5 text-sm text-white/50 hover:text-white/80 transition-colors"
+            className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 rounded"
           >
             Want to compare side-by-side? View the full feature matrix
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
