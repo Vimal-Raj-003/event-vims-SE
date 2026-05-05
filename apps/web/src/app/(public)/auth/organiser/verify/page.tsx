@@ -6,6 +6,80 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
 
 type VerifyStatus = "verifying" | "success" | "error" | "sent";
+type ResendStatus = "idle" | "sending" | "sent" | "error";
+
+function ResendSection({ initialEmail }: { initialEmail: string }) {
+  const [email, setEmail] = useState(initialEmail);
+  const [status, setStatus] = useState<ResendStatus>("idle");
+  const [message, setMessage] = useState("");
+
+  async function handleResend(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email.includes("@")) {
+      setStatus("error");
+      setMessage("Please enter a valid email address.");
+      return;
+    }
+    setStatus("sending");
+    setMessage("");
+    try {
+      const res = await apiClient.post<{ message: string }>(
+        "/auth/organiser/resend-verification",
+        { email },
+      );
+      setStatus("sent");
+      setMessage(
+        res?.data?.message ??
+          "If an unverified account exists for this email, a new verification link has been sent.",
+      );
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })
+        ?.response?.data?.message;
+      setStatus("error");
+      setMessage(msg ?? "Could not send verification email. Please try again.");
+    }
+  }
+
+  return (
+    <form onSubmit={handleResend} className="space-y-2 rounded-xl border border-border bg-muted/30 p-4">
+      <p className="text-xs font-semibold text-foreground">Didn&apos;t get the email?</p>
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <input
+          type="email"
+          required
+          value={email}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            if (status === "error" || status === "sent") {
+              setStatus("idle");
+              setMessage("");
+            }
+          }}
+          placeholder="you@company.com"
+          disabled={status === "sending"}
+          className="flex-1 rounded-lg border border-border bg-white px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15 disabled:opacity-60"
+        />
+        <button
+          type="submit"
+          disabled={status === "sending"}
+          className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-600 disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {status === "sending" ? "Sending…" : "Resend"}
+        </button>
+      </div>
+      {status === "sent" && (
+        <p className="text-xs text-success" role="status">
+          {message}
+        </p>
+      )}
+      {status === "error" && (
+        <p className="text-xs text-destructive" role="alert">
+          {message}
+        </p>
+      )}
+    </form>
+  );
+}
 
 function OrganiserVerifyContent() {
   const searchParams = useSearchParams();
@@ -42,6 +116,8 @@ function OrganiserVerifyContent() {
         );
       });
   }, [token, router]);
+
+  const showResend = status === "sent" || status === "error";
 
   return (
     <div className="w-full max-w-md space-y-6">
@@ -87,22 +163,22 @@ function OrganiserVerifyContent() {
             Redirecting you to login…
           </p>
         )}
-        {(status === "sent" || (status === "error" && !token)) && (
+        {showResend && (
           <p className="mt-1 text-xs text-muted-foreground">
             Tip: Check your spam/junk folder for the verification email.
           </p>
         )}
       </div>
 
+      {showResend && <ResendSection initialEmail={email ?? ""} />}
+
       {status === "sent" && (
-        <div className="space-y-3">
-          <Link
-            href="/auth/organiser/login"
-            className="block w-full rounded-xl border border-border py-3 text-center text-sm font-medium text-foreground hover:bg-muted"
-          >
-            Back to Login
-          </Link>
-        </div>
+        <Link
+          href="/auth/organiser/login"
+          className="block w-full rounded-xl border border-border py-3 text-center text-sm font-medium text-foreground hover:bg-muted"
+        >
+          Back to Login
+        </Link>
       )}
 
       {status === "error" && (

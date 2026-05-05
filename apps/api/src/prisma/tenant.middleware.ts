@@ -29,6 +29,7 @@ export class TenantMiddleware implements NestMiddleware {
     const skipPaths = [
       '/api/v1/auth/organiser/signup',
       '/api/v1/auth/organiser/verify',
+      '/api/v1/auth/organiser/resend-verification',
       '/api/v1/auth/organiser/login',
       '/api/v1/auth/attendee/request-otp',
       '/api/v1/auth/attendee/verify-otp',

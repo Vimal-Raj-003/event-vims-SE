@@ -102,6 +102,62 @@ export class AuthService {
     };
   }
 
+  async resendOrganiserVerification(email: string) {
+    const normalized = email.toLowerCase();
+
+    // Always return the same generic response regardless of whether the email
+    // exists or is already verified — this prevents email-enumeration attacks
+    // through the resend endpoint.
+    const genericResponse = {
+      message:
+        'If an unverified account exists for this email, a new verification link has been sent.',
+    };
+
+    const organiser = await this.prisma.organiser.findUnique({
+      where: { email: normalized },
+    });
+
+    if (!organiser || organiser.emailVerifiedAt) {
+      return genericResponse;
+    }
+
+    // Invalidate any prior unused verification tokens for this email so the
+    // most recent link is the only valid one.
+    await this.prisma.otpVerification.updateMany({
+      where: {
+        email: normalized,
+        purpose: 'email_verification',
+        usedAt: null,
+      },
+      data: { usedAt: new Date() },
+    });
+
+    const verificationToken = this.generateSecureToken();
+    const verificationTokenHash = this.hashToken(verificationToken);
+    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await this.prisma.otpVerification.create({
+      data: {
+        email: normalized,
+        otpHash: verificationTokenHash,
+        purpose: 'email_verification',
+        expiresAt: verificationExpires,
+      },
+    });
+
+    this.logger.log(`Verification email resent to: ${normalized}`);
+
+    await this.mailService.sendVerificationEmail(normalized, verificationToken);
+
+    return {
+      ...genericResponse,
+      verificationToken:
+        this.configService.get<string>('NODE_ENV') !== 'production'
+          ? verificationToken
+          : undefined,
+    };
+  }
+
   async verifyOrganiser(token: string) {
     const tokenHash = this.hashToken(token);
 

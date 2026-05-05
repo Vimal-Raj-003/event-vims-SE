@@ -32,6 +32,10 @@ class VerifyEmailDto {
   @IsString() @IsNotEmpty() token: string;
 }
 
+class ResendVerificationDto {
+  @IsEmail() email: string;
+}
+
 class RequestOtpDto {
   @IsEmail() email: string;
   @IsString() @IsNotEmpty() eventId: string;
@@ -79,6 +83,13 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async verifyOrganiser(@Body() dto: VerifyEmailDto) {
     return this.authService.verifyOrganiser(dto.token);
+  }
+
+  @Post('organiser/resend-verification')
+  @UseGuards(ThrottlerGuard)
+  @HttpCode(HttpStatus.OK)
+  async resendOrganiserVerification(@Body() dto: ResendVerificationDto) {
+    return this.authService.resendOrganiserVerification(dto.email);
   }
 
   @Post('organiser/login')
