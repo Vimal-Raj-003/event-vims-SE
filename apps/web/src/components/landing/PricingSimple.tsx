@@ -23,7 +23,7 @@ export function PricingSimple() {
   };
 
   return (
-    <section className="relative bg-gray-50 py-24 lg:py-32 overflow-hidden">
+    <section id="pricing" className="relative bg-gray-50 py-24 lg:py-32 scroll-mt-20 overflow-hidden">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute top-1/2 -left-20 h-[300px] w-[300px] -translate-y-1/2 rounded-full bg-emerald-200/20 blur-[120px]"

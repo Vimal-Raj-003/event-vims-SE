@@ -18,7 +18,7 @@ interface FeatureBlock {
   icon: ReactNode;
 }
 
-const SPOTLIGHT_INTERVAL_MS = 2500;
+const SPOTLIGHT_INTERVAL_MS = 2000;
 
 const ICON_PROPS = {
   className: "h-5 w-5",
@@ -213,7 +213,7 @@ export function WhatYouGet() {
       : "bg-indigo-50 border-indigo-200 text-indigo-600";
 
   return (
-    <section className="relative bg-white py-24 lg:py-32 overflow-hidden">
+    <section id="features" className="relative bg-white py-24 lg:py-32 scroll-mt-20 overflow-hidden">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute -top-20 right-0 h-[300px] w-[300px] rounded-full bg-emerald-200/20 blur-[120px]"
