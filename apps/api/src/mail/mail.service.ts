@@ -1,13 +1,19 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
+import { PlatformSettingsService } from '../admin/platform-settings.service';
+
+const FALLBACK_PLATFORM_NAME = 'VIMS Events';
 
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
   private transporter: nodemailer.Transporter;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly platformSettings: PlatformSettingsService,
+  ) {
     const secure = this.configService.get<string>('MAIL_USE_SSL', 'false') === 'true';
     this.transporter = nodemailer.createTransport({
       host: this.configService.get<string>('MAIL_SERVER', 'smtppro.zoho.in'),
@@ -25,13 +31,49 @@ export class MailService {
     });
   }
 
-  async sendOtpEmail(to: string, otp: string, eventName: string): Promise<void> {
+  /**
+   * Build the From header from live PlatformSettings.
+   * Falls back to "VIMS Events" if the settings read fails — emails must
+   * never fail because of a settings read.
+   */
+  async buildFromHeader(): Promise<string> {
     const fromAddress = this.configService.get<string>('MAIL_USERNAME');
+    let name = FALLBACK_PLATFORM_NAME;
+    try {
+      const settings = await this.platformSettings.get();
+      name = settings.platformName;
+    } catch {
+      this.logger.warn(
+        'Failed to read platform settings for from header; using fallback',
+      );
+    }
+    return `"${name}" <${fromAddress}>`;
+  }
+
+  /**
+   * Prefix non-OTP subjects with [platformName]. OTP subjects are left
+   * unchanged so the short code stays visible in mobile previews.
+   * Falls back to the raw subject if the settings read fails.
+   */
+  async formatSubject(rawSubject: string, isOtp: boolean): Promise<string> {
+    if (isOtp) return rawSubject;
+    try {
+      const settings = await this.platformSettings.get();
+      return `[${settings.platformName}] ${rawSubject}`;
+    } catch {
+      return rawSubject;
+    }
+  }
+
+  async sendOtpEmail(to: string, otp: string, eventName: string): Promise<void> {
     try {
       await this.transporter.sendMail({
-        from: `"VIMS Events" <${fromAddress}>`,
+        from: await this.buildFromHeader(),
         to,
-        subject: `Your login code for ${this.escapeHtml(eventName)}`,
+        subject: await this.formatSubject(
+          `Your login code for ${this.escapeHtml(eventName)}`,
+          true,
+        ),
         html: this.otpTemplate(otp, eventName),
       });
       this.logger.log(`OTP email sent to ${to}`);
@@ -44,14 +86,13 @@ export class MailService {
   }
 
   async sendVerificationEmail(to: string, token: string): Promise<void> {
-    const fromAddress = this.configService.get<string>('MAIL_USERNAME');
     const frontendUrl = this.configService.get<string>('NEXT_PUBLIC_APP_URL', 'http://localhost:3000');
     const verifyUrl = `${frontendUrl}/auth/organiser/verify?token=${encodeURIComponent(token)}&email=${encodeURIComponent(to)}`;
     try {
       await this.transporter.sendMail({
-        from: `"VIMS Events" <${fromAddress}>`,
+        from: await this.buildFromHeader(),
         to,
-        subject: 'Verify your email — VIMS Events',
+        subject: await this.formatSubject('Verify your email', false),
         html: this.verificationTemplate(verifyUrl),
       });
       this.logger.log(`Verification email sent to ${to}`);
@@ -67,7 +108,6 @@ export class MailService {
     eventName: string,
     loginLink: string,
   ): Promise<void> {
-    const fromAddress = this.configService.get<string>('MAIL_USERNAME');
     const safeName = this.escapeHtml(firstName);
     const safeEvent = this.escapeHtml(eventName);
     const html = `
@@ -84,9 +124,12 @@ export class MailService {
     `;
     try {
       await this.transporter.sendMail({
-        from: `"VIMS Events" <${fromAddress}>`,
+        from: await this.buildFromHeader(),
         to,
-        subject: `You're invited to ${eventName}`,
+        subject: await this.formatSubject(
+          `You're invited to ${eventName}`,
+          false,
+        ),
         html,
       });
       this.logger.log(`Invite email sent to ${to} for ${eventName}`);
@@ -99,12 +142,14 @@ export class MailService {
   }
 
   async sendWelcomeEmail(to: string, name: string, eventName: string): Promise<void> {
-    const fromAddress = this.configService.get<string>('MAIL_USERNAME');
     try {
       await this.transporter.sendMail({
-        from: `"VIMS Events" <${fromAddress}>`,
+        from: await this.buildFromHeader(),
         to,
-        subject: `Welcome to ${this.escapeHtml(eventName)}!`,
+        subject: await this.formatSubject(
+          `Welcome to ${this.escapeHtml(eventName)}!`,
+          false,
+        ),
         html: this.welcomeTemplate(name, eventName),
       });
       this.logger.log(`Welcome email sent to ${to}`);
