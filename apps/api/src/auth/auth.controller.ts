@@ -7,7 +7,7 @@ import {
   UseGuards,
   SerializeOptions,
 } from '@nestjs/common';
-import { IsEmail, IsString, MinLength, IsNotEmpty } from 'class-validator';
+import { IsEmail, IsString, MinLength, IsNotEmpty, IsOptional } from 'class-validator';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -30,6 +30,7 @@ class OrganiserLoginDto {
 
 class VerifyEmailDto {
   @IsString() @IsNotEmpty() token: string;
+  @IsOptional() @IsEmail() email?: string;
 }
 
 class ResendVerificationDto {
@@ -82,7 +83,7 @@ export class AuthController {
   @UseGuards(ThrottlerGuard)
   @HttpCode(HttpStatus.OK)
   async verifyOrganiser(@Body() dto: VerifyEmailDto) {
-    return this.authService.verifyOrganiser(dto.token);
+    return this.authService.verifyOrganiser(dto.token, dto.email);
   }
 
   @Post('organiser/resend-verification')

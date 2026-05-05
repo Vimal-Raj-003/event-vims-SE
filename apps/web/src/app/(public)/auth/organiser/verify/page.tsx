@@ -9,6 +9,7 @@ type VerifyStatus = "verifying" | "success" | "error" | "sent";
 type ResendStatus = "idle" | "sending" | "sent" | "error";
 
 function ResendSection({ initialEmail }: { initialEmail: string }) {
+  const router = useRouter();
   const [email, setEmail] = useState(initialEmail);
   const [status, setStatus] = useState<ResendStatus>("idle");
   const [message, setMessage] = useState("");
@@ -23,14 +24,20 @@ function ResendSection({ initialEmail }: { initialEmail: string }) {
     setStatus("sending");
     setMessage("");
     try {
-      const res = await apiClient.post<{ message: string }>(
-        "/auth/organiser/resend-verification",
-        { email },
-      );
+      const res = await apiClient.post<{
+        message: string;
+        alreadyVerified?: boolean;
+      }>("/auth/organiser/resend-verification", { email });
+      if (res?.data?.alreadyVerified) {
+        setStatus("sent");
+        setMessage(res.data.message ?? "This email is already verified. Redirecting to login…");
+        setTimeout(() => router.push("/auth/organiser/login"), 1500);
+        return;
+      }
       setStatus("sent");
       setMessage(
         res?.data?.message ??
-          "If an unverified account exists for this email, a new verification link has been sent.",
+          "If an account exists for this email, a new verification link has been sent.",
       );
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })
@@ -102,11 +109,18 @@ function OrganiserVerifyContent() {
     if (!token) return;
 
     apiClient
-      .post("/auth/organiser/verify", { token })
-      .then(() => {
+      .post<{ message: string; alreadyVerified?: boolean }>(
+        "/auth/organiser/verify",
+        { token, ...(email ? { email } : {}) },
+      )
+      .then((res) => {
         setStatus("success");
-        setMessage("Your email has been verified. You can now log in.");
-        setTimeout(() => router.push("/auth/organiser/login"), 2500);
+        setMessage(
+          res?.data?.message ??
+            "Your email has been verified. You can now log in.",
+        );
+        const delay = res?.data?.alreadyVerified ? 1500 : 2500;
+        setTimeout(() => router.push("/auth/organiser/login"), delay);
       })
       .catch((err) => {
         setStatus("error");
@@ -115,7 +129,7 @@ function OrganiserVerifyContent() {
             "Verification failed. The link may have expired.",
         );
       });
-  }, [token, router]);
+  }, [token, email, router]);
 
   const showResend = status === "sent" || status === "error";
 

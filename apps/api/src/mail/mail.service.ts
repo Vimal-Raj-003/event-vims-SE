@@ -46,7 +46,7 @@ export class MailService {
   async sendVerificationEmail(to: string, token: string): Promise<void> {
     const fromAddress = this.configService.get<string>('MAIL_USERNAME');
     const frontendUrl = this.configService.get<string>('NEXT_PUBLIC_APP_URL', 'http://localhost:3000');
-    const verifyUrl = `${frontendUrl}/auth/organiser/verify?token=${encodeURIComponent(token)}`;
+    const verifyUrl = `${frontendUrl}/auth/organiser/verify?token=${encodeURIComponent(token)}&email=${encodeURIComponent(to)}`;
     try {
       await this.transporter.sendMail({
         from: `"VIMS Events" <${fromAddress}>`,

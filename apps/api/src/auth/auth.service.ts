@@ -104,39 +104,38 @@ export class AuthService {
 
   async resendOrganiserVerification(email: string) {
     const normalized = email.toLowerCase();
-
-    // Always return the same generic response regardless of whether the email
-    // exists or is already verified — this prevents email-enumeration attacks
-    // through the resend endpoint.
-    const genericResponse = {
-      message:
-        'If an unverified account exists for this email, a new verification link has been sent.',
-    };
-
     const organiser = await this.prisma.organiser.findUnique({
       where: { email: normalized },
     });
 
-    if (!organiser || organiser.emailVerifiedAt) {
-      return genericResponse;
+    // Already verified — tell the user explicitly so they stop waiting
+    // for an email that won't (and shouldn't) come.
+    if (organiser?.emailVerifiedAt) {
+      return {
+        message: 'This email is already verified. Please log in.',
+        alreadyVerified: true,
+      };
     }
 
-    // Invalidate any prior unused verification tokens for this email so the
-    // most recent link is the only valid one.
-    await this.prisma.otpVerification.updateMany({
-      where: {
-        email: normalized,
-        purpose: 'email_verification',
-        usedAt: null,
-      },
-      data: { usedAt: new Date() },
-    });
+    // No account at all — generic response (the only place we still hide
+    // existence; signup itself would 409 Conflict so we're not leaking new
+    // information here).
+    if (!organiser) {
+      return {
+        message:
+          'If an account exists for this email, a new verification link has been sent.',
+      };
+    }
 
+    // Account exists but is not verified. Generate a fresh token. We do NOT
+    // invalidate prior tokens — the link in the user's existing inbox stays
+    // valid until it expires, so they're not locked out if the new email
+    // gets blocked or delayed.
     const verificationToken = this.generateSecureToken();
     const verificationTokenHash = this.hashToken(verificationToken);
     const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-    await this.prisma.otpVerification.create({
+    const newRecord = await this.prisma.otpVerification.create({
       data: {
         email: normalized,
         otpHash: verificationTokenHash,
@@ -145,12 +144,19 @@ export class AuthService {
       },
     });
 
+    try {
+      await this.mailService.sendVerificationEmail(normalized, verificationToken);
+    } catch (error) {
+      // SMTP failed — clean up the orphan token row so it doesn't sit
+      // around as dead data, then surface the failure to the caller.
+      await this.prisma.otpVerification.delete({ where: { id: newRecord.id } });
+      throw error;
+    }
+
     this.logger.log(`Verification email resent to: ${normalized}`);
 
-    await this.mailService.sendVerificationEmail(normalized, verificationToken);
-
     return {
-      ...genericResponse,
+      message: 'Verification email sent. Check your inbox (and spam folder).',
       verificationToken:
         this.configService.get<string>('NODE_ENV') !== 'production'
           ? verificationToken
@@ -158,39 +164,70 @@ export class AuthService {
     };
   }
 
-  async verifyOrganiser(token: string) {
+  async verifyOrganiser(token: string, email?: string) {
     const tokenHash = this.hashToken(token);
 
+    // Look for ANY record with this hash (used or not). This makes the
+    // endpoint idempotent under React StrictMode double-firing and double
+    // clicks — finding a previously-used record is fine; we just check
+    // whether the user is already verified below.
     const verificationRecord = await this.prisma.otpVerification.findFirst({
       where: {
         otpHash: tokenHash,
         purpose: 'email_verification',
-        usedAt: null,
       },
+      orderBy: { createdAt: 'desc' },
     });
 
     if (!verificationRecord) {
-      throw new BadRequestException('Invalid or expired verification token');
+      // Email-aware fallback: if the URL also carries the email and that
+      // organiser is already verified, the link is just stale — guide them
+      // to login instead of throwing a scary error.
+      if (email) {
+        const organiser = await this.prisma.organiser.findUnique({
+          where: { email: email.toLowerCase() },
+        });
+        if (organiser?.emailVerifiedAt) {
+          return {
+            message: 'This email is already verified. Please log in.',
+            alreadyVerified: true,
+          };
+        }
+      }
+      throw new BadRequestException(
+        'Invalid verification token. Please request a new link.',
+      );
+    }
+
+    const organiser = await this.prisma.organiser.findUnique({
+      where: { email: verificationRecord.email },
+    });
+
+    // Idempotency: already verified → success, regardless of token usedAt.
+    if (organiser?.emailVerifiedAt) {
+      return {
+        message: 'This email is already verified. Please log in.',
+        alreadyVerified: true,
+      };
     }
 
     if (verificationRecord.expiresAt < new Date()) {
-      await this.prisma.otpVerification.delete({
-        where: { id: verificationRecord.id },
-      });
-      throw new BadRequestException('Verification token has expired. Please request a new one.');
+      throw new BadRequestException(
+        'Verification token has expired. Please request a new one.',
+      );
     }
 
-    // Mark the organiser's email as verified
     await this.prisma.organiser.update({
       where: { email: verificationRecord.email },
       data: { emailVerifiedAt: new Date() },
     });
 
-    // Mark the OTP record as used
-    await this.prisma.otpVerification.update({
-      where: { id: verificationRecord.id },
-      data: { usedAt: new Date() },
-    });
+    if (!verificationRecord.usedAt) {
+      await this.prisma.otpVerification.update({
+        where: { id: verificationRecord.id },
+        data: { usedAt: new Date() },
+      });
+    }
 
     this.logger.log(`Organiser verified: ${verificationRecord.email}`);
 
