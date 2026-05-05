@@ -31,7 +31,7 @@ export function PricingSimple() {
 
       <div
         ref={ref}
-        className={`relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 transition-all duration-700 ease-out ${
+        className={`relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 transition-all duration-700 ease-out motion-reduce:transition-none ${
           revealed ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"
         }`}
       >

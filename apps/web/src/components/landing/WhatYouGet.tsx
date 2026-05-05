@@ -221,7 +221,7 @@ export function WhatYouGet() {
 
       <div
         ref={revealRef}
-        className={`relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 transition-all duration-700 ease-out ${
+        className={`relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 transition-all duration-700 ease-out motion-reduce:transition-none ${
           revealed ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"
         }`}
       >
@@ -328,7 +328,7 @@ export function WhatYouGet() {
             return (
               <div
                 key={b.title}
-                className={`rounded-2xl border bg-white p-6 transition-all duration-300 ease-out ${
+                className={`rounded-2xl border bg-white p-6 transition-all duration-300 ease-out motion-reduce:transition-none ${
                   isActive
                     ? `${accentBorderActive} shadow-lg ring-4 ${accentRingActive} -translate-y-1`
                     : "border-slate-200 shadow-sm hover:border-slate-300 hover:shadow"
