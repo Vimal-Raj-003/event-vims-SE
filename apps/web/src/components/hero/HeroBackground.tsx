@@ -199,8 +199,9 @@ export function HeroBackground() {
                 ? "animate-hero-pan-right"
                 : "animate-hero-pan-left";
 
+        // alt="" is set explicitly on each <img> below so the
+        // jsx-a11y/alt-text lint rule (which doesn't follow spreads) passes.
         const sharedImgProps = {
-          alt: "",
           decoding: "async" as const,
           onLoad: () => markLoaded(idx, true),
           onError: () => markLoaded(idx, false),
@@ -221,6 +222,7 @@ export function HeroBackground() {
               <source type="image/webp" srcSet={slide.webp} />
               <img
                 src={slide.src}
+                alt=""
                 loading={isPrimary ? "eager" : "lazy"}
                 fetchPriority={isPrimary ? "high" : "auto"}
                 {...sharedImgProps}
@@ -233,6 +235,7 @@ export function HeroBackground() {
           <img
             key={`${slide.src}-${idx}`}
             src={slide.src}
+            alt=""
             loading={isPrimary ? "eager" : "lazy"}
             fetchPriority={isPrimary ? "high" : "auto"}
             crossOrigin="anonymous"
