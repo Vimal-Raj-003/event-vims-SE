@@ -66,7 +66,7 @@ export function LandingNavBar() {
     : "text-white hover:bg-white/10";
   const focusRingClass = isSolid
     ? "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
-    : "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-transparent";
+    : "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white";
 
   const closeMenu = () => setMenuOpen(false);
 
