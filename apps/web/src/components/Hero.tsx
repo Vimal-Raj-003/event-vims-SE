@@ -6,7 +6,10 @@ import { HeroPhonePreview } from "./hero/HeroPhonePreview";
 
 export default function Hero() {
   return (
-    <section className="relative min-h-[640px] lg:min-h-[680px] flex items-center overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-violet-950">
+    <section
+      data-landing-hero
+      className="relative min-h-[640px] lg:min-h-[680px] flex items-center overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-violet-950"
+    >
       <HeroBackground />
 
       <div className="relative mx-auto max-w-7xl w-full px-4 py-20 sm:px-6 sm:py-24 lg:px-8 lg:py-28">
@@ -28,7 +31,7 @@ export default function Hero() {
             >
               Turn Every Handshake Into a{" "}
               <span className="relative inline-block">
-                <span className="bg-gradient-to-r from-indigo-300 via-violet-300 to-blue-300 bg-clip-text text-transparent animate-gradient">
+                <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-500 bg-clip-text text-transparent animate-gradient">
                   Measurable Connection
                 </span>
                 <svg
@@ -47,9 +50,9 @@ export default function Hero() {
                   />
                   <defs>
                     <linearGradient id="heroUL" x1="0" y1="0" x2="400" y2="0" gradientUnits="userSpaceOnUse">
-                      <stop stopColor="#818cf8" />
-                      <stop offset="0.5" stopColor="#c4b5fd" />
-                      <stop offset="1" stopColor="#93c5fd" />
+                      <stop stopColor="#34d399" />
+                      <stop offset="0.5" stopColor="#5eead4" />
+                      <stop offset="1" stopColor="#10b981" />
                     </linearGradient>
                   </defs>
                 </svg>
@@ -64,8 +67,23 @@ export default function Hero() {
               capture leads, and deliver quantifiable value to sponsors.
             </p>
 
+            <a
+              href="#pricing"
+              className="animate-in mt-8 inline-flex items-center gap-2 rounded-full bg-emerald-500/15 border border-emerald-400/30 px-4 py-1.5 text-sm font-semibold text-emerald-300 hover:bg-emerald-500/25 hover:border-emerald-400/50 transition-colors backdrop-blur-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
+              style={{ animationDelay: "200ms" }}
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              Free during beta
+              <span className="text-emerald-200/70">· See pricing</span>
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5-5 5M6 12h12" />
+              </svg>
+            </a>
+
             <div
-              className="animate-in mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center lg:justify-start"
+              className="animate-in mt-6 flex flex-col items-center gap-4 sm:flex-row sm:justify-center lg:justify-start"
               style={{ animationDelay: "240ms" }}
             >
               <Link
