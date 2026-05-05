@@ -56,11 +56,12 @@ In-page anchors:
 
 ### 3.2 Transparent → solid transition
 
-A small private helper hook `useNavSurface()` is defined at the top of the same `LandingNavBar.tsx` module (not a separate file). Inside the `LandingNavBar` component, it owns:
+A small private helper hook `useNavSurface()` is defined at the top of the same `LandingNavBar.tsx` module (not a separate file). It runs an `IntersectionObserver` against the **hero element itself**, looked up by selector `[data-landing-hero]`. To wire this:
 
-- A `<div ref={sentinelRef} aria-hidden className="absolute top-[80vh] h-px w-full pointer-events-none" />` sentinel rendered as the **first child of the navbar** with `position: relative` on the navbar's outer wrapper. Because the sentinel is positioned `top-[80vh]` relative to the page (using a fixed viewport-height offset), it sits roughly 80% down the hero. When the user scrolls past it, `entry.isIntersecting` flips to `false`.
-- An `IntersectionObserver` watching the sentinel with `threshold: 0` and `rootMargin: "-64px 0px 0px 0px"` (subtracting the nav height so the trigger feels right). When the sentinel is **not** intersecting (i.e., user has scrolled past), `useNavSurface` returns `surface: "solid"`. Otherwise `surface: "transparent"`.
-- SSR fallback: initial state is `"transparent"`. The hook never reads `window` outside an effect.
+- The outer `<section>` in `Hero.tsx` gets a `data-landing-hero` attribute (see §4.4).
+- `useNavSurface` runs in a `useEffect`: `document.querySelector<HTMLElement>("[data-landing-hero]")`, then observes that element with `threshold: [0, 0.1, 1]` and `rootMargin: "-64px 0px 0px 0px"` (so the nav-height region is excluded from the calculation).
+- When `entry.intersectionRatio < 0.1` (i.e., 90%+ of the hero has scrolled out of view), return `surface: "solid"`. Otherwise `"transparent"`.
+- SSR-safe: initial state is `"transparent"`; the observer is created inside `useEffect` so `window` is never touched at module level. If `IntersectionObserver` is unavailable or the hero is not found, the hook stays at `"transparent"` (graceful no-op).
 
 - **Transparent state** (hero in view): `bg-transparent`, no border, no shadow. Text classes use `text-white` / `text-white/70`. Buttons keep their normal emerald style; the ghost button uses `text-white hover:bg-white/10`.
 - **Solid state** (hero out of view): `bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-sm`. Text classes use `text-slate-900` / `text-slate-600`. Ghost button uses `text-slate-700 hover:bg-slate-100`.
@@ -118,7 +119,11 @@ The badge is positioned in the existing CTA cluster, just **before** the CTA row
 
 The "See How It Works" `<a href="#how-it-works">` already exists in the hero. The HowItWorks section will provide that anchor — no change to the hero CTA itself.
 
-### 4.4 Out of scope
+### 4.4 `data-landing-hero` attribute
+
+The outer hero `<section>` receives `data-landing-hero` (no value needed). This is the hook the navbar uses to find and observe the hero (see §3.2). No other Hero structural changes.
+
+### 4.5 Out of scope
 
 The "Beta Launch · Completely Free to Start" status pill above the headline stays untouched. The phone preview, "1,284 attendees networking now" mini-badge, and animated background components stay untouched.
 
