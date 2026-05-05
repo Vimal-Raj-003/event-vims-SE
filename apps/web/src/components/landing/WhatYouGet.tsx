@@ -206,7 +206,7 @@ export function WhatYouGet() {
   const accentRingActive =
     accent === "emerald" ? "ring-emerald-100" : "ring-indigo-100";
   const accentIconBgActive =
-    accent === "emerald" ? "bg-emerald-500 text-white border-emerald-500" : "bg-indigo-500 text-white border-indigo-500";
+    accent === "emerald" ? "bg-emerald-600 text-white border-emerald-600" : "bg-indigo-600 text-white border-indigo-600";
   const accentIconBgIdle =
     accent === "emerald"
       ? "bg-emerald-50 border-emerald-200 text-emerald-600"
@@ -289,7 +289,7 @@ export function WhatYouGet() {
             onClick={() => setRole("organiser")}
             onKeyDown={(e) => switchRoleByKey(e, "mobile")}
             className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 ${
-              role === "organiser" ? "bg-emerald-500 text-white" : "bg-slate-100 text-slate-600"
+              role === "organiser" ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600"
             }`}
           >
             Organisers
@@ -304,7 +304,7 @@ export function WhatYouGet() {
             onClick={() => setRole("attendee")}
             onKeyDown={(e) => switchRoleByKey(e, "mobile")}
             className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${
-              role === "attendee" ? "bg-indigo-500 text-white" : "bg-slate-100 text-slate-600"
+              role === "attendee" ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600"
             }`}
           >
             Attendees
@@ -315,12 +315,13 @@ export function WhatYouGet() {
           id="features-panel"
           role="tabpanel"
           aria-labelledby={`tab-${role}-d tab-${role}-m`}
+          tabIndex={0}
           ref={cardsContainerRef}
           onMouseEnter={pause}
           onMouseLeave={resume}
           onFocusCapture={pause}
           onBlurCapture={resume}
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white rounded-2xl"
         >
           {blocks.map((b, idx) => {
             const isActive = idx === activeIndex;
