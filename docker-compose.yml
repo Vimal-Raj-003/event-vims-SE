@@ -13,6 +13,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 4000
+      BACKEND_URL: https://api.se.vimsenterprise.com
       DATABASE_URL: ${DATABASE_URL}
       DATABASE_URL_DIRECT: ${DATABASE_URL_DIRECT}
       JWT_SECRET: ${JWT_SECRET}
