@@ -8,6 +8,8 @@ import {
   ProfileActionBar,
   type ConnectionStatus,
 } from "@/components/profile/ProfileActionBar";
+import { AvatarWithStar, RoleChip } from "@/components/profile/RoleBadge";
+import type { AttendeeRole } from "@/lib/role-utils";
 
 interface PublicProfile {
   id: string;
@@ -27,6 +29,7 @@ interface PublicProfile {
   linkedinUrl?: string | null;
   websiteUrl?: string | null;
   twitterHandle?: string | null;
+  role?: AttendeeRole;
   connectionStatus: ConnectionStatus;
 }
 
@@ -163,18 +166,23 @@ export default function AttendeeProfilePage({
     <div className="space-y-4 pb-24">
       <div className="relative rounded-3xl p-6 sm:p-8 overflow-hidden bg-gradient-to-br from-indigo-500 via-violet-500 to-pink-500 text-white">
         <div className="flex flex-col items-center text-center">
-          {profile.profilePhotoUrl ? (
-            <img
-              src={profile.profilePhotoUrl}
-              alt=""
-              className="w-[72px] h-[72px] rounded-full border-[3px] border-white object-cover"
-            />
-          ) : (
-            <div className="w-[72px] h-[72px] rounded-full border-[3px] border-white bg-white/20 flex items-center justify-center text-2xl font-extrabold">
-              {initials}
-            </div>
-          )}
-          <h1 className="mt-3 text-2xl font-bold leading-tight">{fullName}</h1>
+          <AvatarWithStar role={profile.role}>
+            {profile.profilePhotoUrl ? (
+              <img
+                src={profile.profilePhotoUrl}
+                alt=""
+                className="w-[72px] h-[72px] rounded-full border-[3px] border-white object-cover"
+              />
+            ) : (
+              <div className="w-[72px] h-[72px] rounded-full border-[3px] border-white bg-white/20 flex items-center justify-center text-2xl font-extrabold">
+                {initials}
+              </div>
+            )}
+          </AvatarWithStar>
+          <div className="mt-3 flex items-center justify-center gap-2">
+            <h1 className="text-2xl font-bold leading-tight">{fullName}</h1>
+            <RoleChip role={profile.role} className="bg-white/20 text-white" />
+          </div>
           {role && <p className="text-sm text-white/85 mt-1">{role}</p>}
           {meta && (
             <span className="mt-3 inline-flex items-center px-3 py-1 rounded-full bg-white/15 backdrop-blur-md text-xs">
