@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { apiClient } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/stores/auth-store";
+import { RoleChip } from "@/components/profile/RoleBadge";
+import type { AttendeeRole } from "@/lib/role-utils";
 
 interface SuggestionCardProps {
   attendee: {
@@ -18,6 +20,7 @@ interface SuggestionCardProps {
     services: string[];
     profilePhotoUrl: string | null;
     companyLogoUrl: string | null;
+    role?: AttendeeRole;
     connectionStatus: string | null;
   };
   score: number;
@@ -74,9 +77,12 @@ export function SuggestionCard({ attendee, score, reasons }: SuggestionCardProps
         {/* Info */}
         <div className="min-w-0 flex-1">
           <Link href={`/profile/${attendee.id}?from=suggestions`}>
-            <h3 className="text-sm font-semibold text-foreground hover:text-primary transition-colors">
-              {attendee.firstName} {attendee.lastName}
-            </h3>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <h3 className="text-sm font-semibold text-foreground hover:text-primary transition-colors truncate">
+                {attendee.firstName} {attendee.lastName}
+              </h3>
+              <RoleChip role={attendee.role} />
+            </div>
           </Link>
           <p className="text-xs text-muted-foreground">
             {attendee.designation} at {attendee.company}
