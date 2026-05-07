@@ -1,17 +1,27 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
 
+const AttendeeQrScanner = dynamic(
+  () => import("@/components/auth/AttendeeQrScanner").then((m) => m.AttendeeQrScanner),
+  { ssr: false },
+);
+
 type Tab = "id" | "browse" | "qr";
+
+type EventBucket = "LIVE" | "UPCOMING" | "PAST";
 
 interface OrganiserOption {
   id: string;
   name: string;
   organisation: string;
   eventCount: number;
+  liveEventCount: number;
+  pastEventCount: number;
 }
 
 interface EventOption {
@@ -20,6 +30,18 @@ interface EventOption {
   startAt: string;
   endAt: string;
   venue: string;
+  bucket: EventBucket;
+}
+
+interface ActiveEventOption {
+  id: string;
+  name: string;
+  startAt: string;
+  endAt: string;
+  venue: string;
+  organiserName: string;
+  organisation: string;
+  bucket: EventBucket;
 }
 
 function formatEventDate(iso: string): string {
@@ -27,8 +49,15 @@ function formatEventDate(iso: string): string {
   return d.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
 }
 
+const BUCKET_META: Record<EventBucket, { label: string; chipClass: string }> = {
+  LIVE: { label: "Live now", chipClass: "bg-emerald-100 text-emerald-800" },
+  UPCOMING: { label: "Upcoming", chipClass: "bg-sky-100 text-sky-800" },
+  PAST: { label: "Past", chipClass: "bg-zinc-100 text-zinc-600" },
+};
+
 /* ──────────────────────────────────────────────────────────────────────
- * Searchable combobox. Used for both the organiser and event pickers.
+ * Searchable combobox with optional grouped sections.
+ * Groups render with a sticky-feel header and visually-muted past items.
  * Keyboard nav: ArrowDown / ArrowUp / Enter / Escape.
  * Mouse: click an item to select; click outside to close.
  * ────────────────────────────────────────────────────────────────────── */
@@ -37,6 +66,8 @@ interface ComboboxOption {
   primary: string;
   secondary?: string;
   meta?: string;
+  // bucket controls grouping + muted styling for PAST items
+  bucket?: EventBucket;
 }
 
 interface ComboboxProps {
@@ -49,6 +80,8 @@ interface ComboboxProps {
   loading?: boolean;
   emptyText?: string;
   ariaLabel?: string;
+  // when true, render Active (LIVE+UPCOMING) and Past sections separately
+  groupByBucket?: boolean;
 }
 
 function Combobox({
@@ -61,6 +94,7 @@ function Combobox({
   loading,
   emptyText,
   ariaLabel,
+  groupByBucket,
 }: ComboboxProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -68,8 +102,6 @@ function Combobox({
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const listRef = useRef<HTMLUListElement | null>(null);
-  // Stable per-instance prefix so option ids don't collide between two
-  // comboboxes on the same page (organiser + event pickers).
   const instanceId = useRef(`cmb-${Math.random().toString(36).slice(2, 9)}`).current;
   const listboxId = `${instanceId}-listbox`;
   const optionId = (id: string) => `${instanceId}-opt-${id}`;
@@ -87,7 +119,23 @@ function Combobox({
     );
   }, [options, query]);
 
-  // Close on outside click
+  // When grouping, split into Active + Past while preserving the parent's
+  // sort order within each section. Build a flat-with-headers list so
+  // keyboard nav still operates over a single index space.
+  const grouped = useMemo(() => {
+    if (!groupByBucket) {
+      return [{ key: "all" as const, label: "", items: filtered }];
+    }
+    const active = filtered.filter((o) => o.bucket !== "PAST");
+    const past = filtered.filter((o) => o.bucket === "PAST");
+    const sections: { key: "active" | "past"; label: string; items: ComboboxOption[] }[] = [];
+    if (active.length) sections.push({ key: "active", label: "Active", items: active });
+    if (past.length) sections.push({ key: "past", label: "Past", items: past });
+    return sections;
+  }, [filtered, groupByBucket]);
+
+  const flatItems = useMemo(() => grouped.flatMap((g) => g.items), [grouped]);
+
   useEffect(() => {
     if (!open) return;
     const onDocClick = (e: MouseEvent) => {
@@ -97,12 +145,10 @@ function Combobox({
     return () => document.removeEventListener("mousedown", onDocClick);
   }, [open]);
 
-  // Reset highlighted index when filter changes
   useEffect(() => {
     setActiveIndex(0);
   }, [query, options.length]);
 
-  // Scroll active item into view
   useEffect(() => {
     if (!open || !listRef.current) return;
     const el = listRef.current.querySelector<HTMLElement>(`[data-idx="${activeIndex}"]`);
@@ -114,14 +160,14 @@ function Combobox({
     if (e.key === "ArrowDown") {
       e.preventDefault();
       setOpen(true);
-      setActiveIndex((i) => Math.min(i + 1, filtered.length - 1));
+      setActiveIndex((i) => Math.min(i + 1, flatItems.length - 1));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setActiveIndex((i) => Math.max(i - 1, 0));
     } else if (e.key === "Enter") {
-      if (open && filtered[activeIndex]) {
+      if (open && flatItems[activeIndex]) {
         e.preventDefault();
-        onChange(filtered[activeIndex]!.id);
+        onChange(flatItems[activeIndex]!.id);
         setQuery("");
         setOpen(false);
       }
@@ -132,6 +178,8 @@ function Combobox({
   };
 
   const displayValue = open ? query : (selected ? selected.primary : "");
+
+  let runningIdx = 0;
 
   return (
     <div className="space-y-1.5" ref={wrapperRef}>
@@ -146,7 +194,7 @@ function Combobox({
           aria-autocomplete="list"
           aria-label={ariaLabel ?? label}
           aria-activedescendant={
-            open && filtered[activeIndex] ? optionId(filtered[activeIndex].id) : undefined
+            open && flatItems[activeIndex] ? optionId(flatItems[activeIndex].id) : undefined
           }
           disabled={disabled}
           placeholder={disabled ? "Select an organiser first" : placeholder}
@@ -190,49 +238,84 @@ function Combobox({
             {loading && (
               <li className="px-4 py-3 text-sm text-muted-foreground">Loading…</li>
             )}
-            {!loading && filtered.length === 0 && (
+            {!loading && flatItems.length === 0 && (
               <li className="px-4 py-3 text-sm text-muted-foreground">
                 {emptyText ?? "No matches"}
               </li>
             )}
             {!loading &&
-              filtered.map((opt, idx) => {
-                const isActive = idx === activeIndex;
-                const isSelected = opt.id === value;
-                return (
-                  <li
-                    key={opt.id}
-                    id={optionId(opt.id)}
-                    data-idx={idx}
-                    role="option"
-                    aria-selected={isSelected}
-                    onMouseEnter={() => setActiveIndex(idx)}
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      onChange(opt.id);
-                      setQuery("");
-                      setOpen(false);
-                    }}
-                    className={`flex cursor-pointer flex-col gap-0.5 px-4 py-2.5 text-sm transition-colors ${
-                      isActive ? "bg-emerald-50 text-emerald-900" : "text-foreground hover:bg-muted"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className={`truncate ${isSelected ? "font-semibold" : "font-medium"}`}>
-                        {opt.primary}
-                      </span>
-                      {opt.meta && (
-                        <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                          {opt.meta}
-                        </span>
-                      )}
+              grouped.map((section) => (
+                <li key={section.key}>
+                  {groupByBucket && section.label && (
+                    <div
+                      className={`px-4 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider ${
+                        section.key === "past" ? "text-zinc-500" : "text-emerald-700"
+                      }`}
+                    >
+                      {section.label}
                     </div>
-                    {opt.secondary && (
-                      <span className="truncate text-xs text-muted-foreground">{opt.secondary}</span>
-                    )}
-                  </li>
-                );
-              })}
+                  )}
+                  <ul>
+                    {section.items.map((opt) => {
+                      const idx = runningIdx++;
+                      const isActive = idx === activeIndex;
+                      const isSelected = opt.id === value;
+                      const isPast = opt.bucket === "PAST";
+                      const meta = opt.meta ?? (opt.bucket ? BUCKET_META[opt.bucket].label : undefined);
+                      const metaClass = opt.bucket
+                        ? BUCKET_META[opt.bucket].chipClass
+                        : "text-muted-foreground";
+                      return (
+                        <li
+                          key={opt.id}
+                          id={optionId(opt.id)}
+                          data-idx={idx}
+                          role="option"
+                          aria-selected={isSelected}
+                          onMouseEnter={() => setActiveIndex(idx)}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            onChange(opt.id);
+                            setQuery("");
+                            setOpen(false);
+                          }}
+                          className={`flex cursor-pointer flex-col gap-0.5 px-4 py-2.5 text-sm transition-colors ${
+                            isActive
+                              ? "bg-emerald-50 text-emerald-900"
+                              : isPast
+                                ? "text-zinc-500 hover:bg-zinc-50"
+                                : "text-foreground hover:bg-muted"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className={`truncate ${isSelected ? "font-semibold" : "font-medium"}`}>
+                              {opt.primary}
+                            </span>
+                            {meta && (
+                              <span
+                                className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                  opt.bucket ? metaClass : "uppercase tracking-wider " + metaClass
+                                }`}
+                              >
+                                {meta}
+                              </span>
+                            )}
+                          </div>
+                          {opt.secondary && (
+                            <span
+                              className={`truncate text-xs ${
+                                isPast ? "text-zinc-400" : "text-muted-foreground"
+                              }`}
+                            >
+                              {opt.secondary}
+                            </span>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </li>
+              ))}
           </ul>
         )}
       </div>
@@ -311,7 +394,12 @@ function AttendeeLoginContent() {
 
   const [activeTab, setActiveTab] = useState<Tab>("id");
   const [email, setEmail] = useState("");
+
+  // Event ID tab state — supports both combobox-pick and free-text paste.
   const [eventIdInput, setEventIdInput] = useState("");
+  const [activeEvents, setActiveEvents] = useState<ActiveEventOption[]>([]);
+  const [activeEventsLoading, setActiveEventsLoading] = useState(false);
+  const [pickedActiveEventId, setPickedActiveEventId] = useState<string | null>(null);
 
   const [organiserId, setOrganiserId] = useState<string | null>(null);
   const [eventId, setEventId] = useState<string | null>(null);
@@ -321,20 +409,46 @@ function AttendeeLoginContent() {
   const [organiserEvents, setOrganiserEvents] = useState<EventOption[]>([]);
   const [eventsLoading, setEventsLoading] = useState(false);
 
+  // QR tab
+  const [qrActive, setQrActive] = useState(false);
+  const [qrFilledFlash, setQrFilledFlash] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   // Auto-fill Event ID from URL param (so QR scans land here pre-filled)
   useEffect(() => {
     const fromUrl = searchParams.get("eventId");
-    if (fromUrl && fromUrl !== eventIdInput) {
+    if (fromUrl) {
       setEventIdInput(fromUrl);
       setActiveTab("id");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Lazy-load organisers when the Browse tab is first opened.
+  // Lazy-load active events list when ID tab opens (also primes the dropdown
+  // before the user even clicks). Cheap, cached for 30s server-side.
+  useEffect(() => {
+    if (activeTab !== "id" || activeEvents.length > 0 || activeEventsLoading) return;
+    let cancelled = false;
+    setActiveEventsLoading(true);
+    apiClient
+      .get<ActiveEventOption[]>("/public/events/active")
+      .then((res) => {
+        if (!cancelled) setActiveEvents(res.data ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setActiveEvents([]);
+      })
+      .finally(() => {
+        if (!cancelled) setActiveEventsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, activeEvents.length, activeEventsLoading]);
+
+  // Lazy-load organisers when Browse tab opens.
   useEffect(() => {
     if (activeTab !== "browse" || organisers.length > 0 || organisersLoading) return;
     let cancelled = false;
@@ -356,8 +470,6 @@ function AttendeeLoginContent() {
   }, [activeTab, organisers.length, organisersLoading]);
 
   // Load events whenever the selected organiser changes.
-  // `cancelled` flag ensures a slow response from organiser A doesn't
-  // overwrite the events list after the user has switched to organiser B.
   useEffect(() => {
     if (!organiserId) {
       setOrganiserEvents([]);
@@ -382,6 +494,15 @@ function AttendeeLoginContent() {
       cancelled = true;
     };
   }, [organiserId]);
+
+  // The picked-active-event combobox is just a different way to populate
+  // eventIdInput; keep them in sync so a user who picks then edits the text
+  // sees consistent behaviour.
+  useEffect(() => {
+    if (!pickedActiveEventId) return;
+    const ev = activeEvents.find((e) => e.id === pickedActiveEventId);
+    if (ev) setEventIdInput(ev.id);
+  }, [pickedActiveEventId, activeEvents]);
 
   const resolvedEventId = activeTab === "browse" ? eventId : eventIdInput.trim();
 
@@ -424,7 +545,14 @@ function AttendeeLoginContent() {
         id: o.id,
         primary: o.name,
         secondary: o.organisation,
-        meta: o.eventCount === 1 ? "1 event" : `${o.eventCount} events`,
+        meta:
+          o.liveEventCount > 0
+            ? `${o.liveEventCount} live`
+            : o.eventCount === 1
+              ? "1 past"
+              : `${o.eventCount} past`,
+        // Treat organisers with zero live/upcoming as PAST so they group at bottom.
+        bucket: o.liveEventCount > 0 ? "LIVE" : "PAST",
       })),
     [organisers],
   );
@@ -435,17 +563,39 @@ function AttendeeLoginContent() {
         id: e.id,
         primary: e.name,
         secondary: `${e.venue} · ${formatEventDate(e.startAt)}`,
+        bucket: e.bucket,
       })),
     [organiserEvents],
   );
+
+  const activeEventOptions: ComboboxOption[] = useMemo(
+    () =>
+      activeEvents.map((e) => ({
+        id: e.id,
+        primary: e.name,
+        secondary: `${e.organiserName || e.organisation} · ${e.venue} · ${formatEventDate(e.startAt)}`,
+        bucket: e.bucket,
+      })),
+    [activeEvents],
+  );
+
+  function handleQrEventId(id: string) {
+    setEventIdInput(id);
+    setPickedActiveEventId(activeEvents.find((e) => e.id === id) ? id : null);
+    setQrActive(false);
+    setActiveTab("id");
+    setQrFilledFlash(true);
+    setTimeout(() => setQrFilledFlash(false), 2500);
+  }
 
   return (
     <div className="animate-in">
       <div className="mb-8">
         <div className="mb-3 inline-flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-1.5">
-          <svg className="h-3.5 w-3.5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 9a2 2 0 10-4 0v5a2 2 0 104 0V9z" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 9h.01M15 9h.01" />
+          {/* Ticket icon — replaces the malformed SVG that rendered as a "0" */}
+          <svg className="h-3.5 w-3.5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75c0 .69.56 1.25 1.25 1.25h2.25v6h-2.25c-.69 0-1.25.56-1.25 1.25v.75h-9v-.75c0-.69-.56-1.25-1.25-1.25H4V8h2.25c.69 0 1.25-.56 1.25-1.25V6h9z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 9.75v4.5" />
           </svg>
           <span className="text-xs font-semibold text-emerald-700">Attendee Portal</span>
         </div>
@@ -480,24 +630,52 @@ function AttendeeLoginContent() {
         {/* Tab switcher */}
         <div className="space-y-2.5">
           <p className="text-sm font-semibold text-foreground">How do you want to find your event?</p>
-          <TabSwitcher active={activeTab} onChange={setActiveTab} />
+          <TabSwitcher
+            active={activeTab}
+            onChange={(t) => {
+              setActiveTab(t);
+              if (t !== "qr") setQrActive(false);
+            }}
+          />
         </div>
 
-        {/* Event ID tab */}
+        {/* Event ID tab — combobox of currently-active events + free-text paste */}
         {activeTab === "id" && (
-          <div className="space-y-1.5">
-            <label className="block text-sm font-semibold text-foreground">Event ID</label>
-            <input
-              type="text"
-              required={activeTab === "id"}
-              placeholder="Paste the event ID from your invitation"
-              value={eventIdInput}
-              onChange={(e) => setEventIdInput(e.target.value)}
-              className="w-full rounded-2xl border border-border bg-muted/30 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/60 transition-all focus:border-primary focus:bg-white focus:outline-none focus:ring-3 focus:ring-primary/10"
+          <div className="space-y-3">
+            <Combobox
+              label="Pick a live or upcoming event"
+              ariaLabel="Pick a live or upcoming event"
+              placeholder={activeEventsLoading ? "Loading events…" : "Search live events…"}
+              options={activeEventOptions}
+              value={pickedActiveEventId}
+              onChange={(id) => setPickedActiveEventId(id)}
+              loading={activeEventsLoading}
+              emptyText="No live or upcoming events right now. Paste your Event ID below."
             />
-            <p className="text-xs text-muted-foreground">
-              The event ID is in the invitation email or the QR code from your organiser.
-            </p>
+            <div className="space-y-1.5">
+              <label className="block text-sm font-semibold text-foreground">
+                …or paste an Event ID
+              </label>
+              <input
+                type="text"
+                placeholder="Paste the event ID from your invitation"
+                value={eventIdInput}
+                onChange={(e) => {
+                  setEventIdInput(e.target.value);
+                  if (pickedActiveEventId && e.target.value !== pickedActiveEventId) {
+                    setPickedActiveEventId(null);
+                  }
+                }}
+                className={`w-full rounded-2xl border bg-muted/30 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/60 transition-all focus:bg-white focus:outline-none focus:ring-3 focus:ring-primary/10 ${
+                  qrFilledFlash ? "border-emerald-400 ring-2 ring-emerald-200" : "border-border focus:border-primary"
+                }`}
+              />
+              <p className="text-xs text-muted-foreground">
+                {qrFilledFlash
+                  ? "Filled from QR scan."
+                  : "The event ID is in the invitation email or the QR code from your organiser."}
+              </p>
+            </div>
           </div>
         )}
 
@@ -513,6 +691,7 @@ function AttendeeLoginContent() {
               onChange={(id) => setOrganiserId(id)}
               loading={organisersLoading}
               emptyText="No public organisers right now. Try Event ID instead."
+              groupByBucket
             />
             <Combobox
               label="Event"
@@ -523,35 +702,52 @@ function AttendeeLoginContent() {
               onChange={(id) => setEventId(id)}
               disabled={!organiserId}
               loading={eventsLoading}
-              emptyText="This organiser has no live or upcoming events."
+              emptyText="This organiser has no live, upcoming, or recent events."
+              groupByBucket
             />
           </div>
         )}
 
-        {/* QR tab */}
+        {/* QR tab — live in-browser scanner */}
         {activeTab === "qr" && (
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-center">
-            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm">
-              <svg className="h-7 w-7 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 19.5h.75v.75h-.75v-.75zM19.5 13.5h.75v.75h-.75v-.75zM19.5 19.5h.75v.75h-.75v-.75z" />
-              </svg>
-            </div>
-            <p className="text-sm font-semibold text-emerald-900">Scan with your phone&apos;s camera</p>
-            <p className="mt-1.5 text-xs text-emerald-800/80 leading-relaxed">
-              Open your camera app and point it at the event QR code on your invitation, lanyard,
-              or event signage. The link will open this page with the event already filled in.
-            </p>
-            <button
-              type="button"
-              onClick={() => setActiveTab("id")}
-              className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 hover:text-emerald-900 transition-colors"
-            >
-              Or enter the event ID manually
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5-5 5M6 12h12" />
-              </svg>
-            </button>
+          <div className="space-y-3">
+            {!qrActive ? (
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-center">
+                <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm">
+                  <svg className="h-7 w-7 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 19.5h.75v.75h-.75v-.75zM19.5 13.5h.75v.75h-.75v-.75zM19.5 19.5h.75v.75h-.75v-.75z" />
+                  </svg>
+                </div>
+                <p className="text-sm font-semibold text-emerald-900">Scan with your camera</p>
+                <p className="mt-1.5 text-xs text-emerald-800/80 leading-relaxed">
+                  Open the camera here and point it at your event QR code. Works on phone (rear camera)
+                  and desktop webcam — your browser will ask for permission first.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setQrActive(true)}
+                  className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-emerald-700 transition-colors"
+                >
+                  Open camera
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5-5 5M6 12h12" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("id")}
+                  className="mt-2 block w-full text-xs font-semibold text-emerald-700 hover:text-emerald-900 transition-colors"
+                >
+                  Or enter the event ID manually
+                </button>
+              </div>
+            ) : (
+              <AttendeeQrScanner
+                onEventId={handleQrEventId}
+                onCancel={() => setQrActive(false)}
+              />
+            )}
           </div>
         )}
 
