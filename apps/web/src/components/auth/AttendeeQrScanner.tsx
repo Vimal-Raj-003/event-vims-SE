@@ -13,20 +13,25 @@ interface AttendeeQrScannerProps {
  * backend encode a registration URL like:
  *   {FRONTEND_URL}/auth/attendee/register?eventId=cuidxxx&eventName=...
  * We accept either a full URL containing `eventId=...` or a bare event id.
+ *
+ * The same shape check (cuid/cuid2 alphanumeric, 16-40 chars) is applied to
+ * BOTH branches — without it, a stranger's QR (vCard, wifi, foreign URL with
+ * an `eventId` param) could stuff arbitrary content into form state and the
+ * outgoing request URL.
  */
+const EVENT_ID_PATTERN = /^[a-z0-9]{16,40}$/i;
+
 function extractEventId(raw: string): string | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;
+  let candidate: string | null = null;
   try {
-    const url = new URL(trimmed);
-    const fromQuery = url.searchParams.get("eventId");
-    if (fromQuery) return fromQuery;
+    candidate = new URL(trimmed).searchParams.get("eventId");
   } catch {
-    // not a URL — fall through and treat as a raw id
+    // not a URL — treat the whole payload as a raw id
   }
-  // Heuristic: cuid/cuid2 ids are alphanumeric, 20-30 chars, no spaces.
-  if (/^[a-z0-9]{16,40}$/i.test(trimmed)) return trimmed;
-  return null;
+  if (!candidate) candidate = trimmed;
+  return EVENT_ID_PATTERN.test(candidate.trim()) ? candidate.trim() : null;
 }
 
 export function AttendeeQrScanner({ onEventId, onCancel }: AttendeeQrScannerProps) {

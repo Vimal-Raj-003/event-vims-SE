@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -22,6 +22,7 @@ interface OrganiserOption {
   organisation: string;
   eventCount: number;
   liveEventCount: number;
+  upcomingEventCount: number;
   pastEventCount: number;
 }
 
@@ -542,19 +543,32 @@ function AttendeeLoginContent() {
 
   const organiserOptions: ComboboxOption[] = useMemo(
     () =>
-      organisers.map((o) => ({
-        id: o.id,
-        primary: o.name,
-        secondary: o.organisation,
-        meta:
-          o.liveEventCount > 0
-            ? `${o.liveEventCount} live`
-            : o.eventCount === 1
-              ? "1 past"
-              : `${o.eventCount} past`,
-        // Treat organisers with zero live/upcoming as PAST so they group at bottom.
-        bucket: o.liveEventCount > 0 ? "LIVE" : "PAST",
-      })),
+      organisers.map((o) => {
+        // Build a meta chip that's honest about live vs upcoming. Past-only
+        // organisers fall through to a past count.
+        let meta: string;
+        if (o.liveEventCount > 0 && o.upcomingEventCount > 0) {
+          meta = `${o.liveEventCount} live · ${o.upcomingEventCount} upcoming`;
+        } else if (o.liveEventCount > 0) {
+          meta = o.liveEventCount === 1 ? "1 live" : `${o.liveEventCount} live`;
+        } else if (o.upcomingEventCount > 0) {
+          meta = o.upcomingEventCount === 1 ? "1 upcoming" : `${o.upcomingEventCount} upcoming`;
+        } else {
+          meta = o.pastEventCount === 1 ? "1 past" : `${o.pastEventCount} past`;
+        }
+        // Bucket drives both grouping (Active vs Past) and the chip color.
+        // LIVE wins over UPCOMING — an organiser with even one live event
+        // gets a green chip and lands at the top of the Active section.
+        const bucket: EventBucket =
+          o.liveEventCount > 0 ? "LIVE" : o.upcomingEventCount > 0 ? "UPCOMING" : "PAST";
+        return {
+          id: o.id,
+          primary: o.name,
+          secondary: o.organisation,
+          meta,
+          bucket,
+        };
+      }),
     [organisers],
   );
 
@@ -580,14 +594,20 @@ function AttendeeLoginContent() {
     [activeEvents],
   );
 
-  function handleQrEventId(id: string) {
-    setEventIdInput(id);
-    setPickedActiveEventId(activeEvents.find((e) => e.id === id) ? id : null);
-    setQrActive(false);
-    setActiveTab("id");
-    setQrFilledFlash(true);
-    setTimeout(() => setQrFilledFlash(false), 2500);
-  }
+  // Memoised: a fresh reference on every parent render would re-run the
+  // QrScanner's effect (it lists onEventId in its deps), tearing down and
+  // reinitialising the camera every time the user types in the email input.
+  const handleQrEventId = useCallback(
+    (id: string) => {
+      setEventIdInput(id);
+      setPickedActiveEventId(activeEvents.find((e) => e.id === id) ? id : null);
+      setQrActive(false);
+      setActiveTab("id");
+      setQrFilledFlash(true);
+      setTimeout(() => setQrFilledFlash(false), 2500);
+    },
+    [activeEvents],
+  );
 
   return (
     <div className="animate-in">

@@ -66,7 +66,7 @@ export class PublicController {
   @Header('Cache-Control', 'public, max-age=60, stale-while-revalidate=120')
   @ApiOperation({
     summary:
-      'Organisers with at least one published event (live, upcoming, or recent past). Includes liveEventCount + pastEventCount so the client can group Active vs Past.',
+      'Organisers with at least one published event (live, upcoming, or recent past). Returns liveEventCount, upcomingEventCount, and pastEventCount separately so the client can group Active vs Past and label honestly.',
   })
   async organisers() {
     const now = new Date();
@@ -98,23 +98,31 @@ export class PublicController {
     return organisers
       .map((o) => {
         let liveEventCount = 0;
+        let upcomingEventCount = 0;
         let pastEventCount = 0;
         for (const e of o.events) {
           const b = bucketFor(e.startAt, e.endAt, now);
-          if (b === 'PAST') pastEventCount += 1;
-          else liveEventCount += 1;
+          if (b === 'LIVE') liveEventCount += 1;
+          else if (b === 'UPCOMING') upcomingEventCount += 1;
+          else pastEventCount += 1;
         }
         return {
           id: o.id,
           name: o.name,
           organisation: o.organisation,
-          eventCount: liveEventCount + pastEventCount,
+          eventCount: liveEventCount + upcomingEventCount + pastEventCount,
           liveEventCount,
+          upcomingEventCount,
           pastEventCount,
         };
       })
       .sort((a, b) => {
+        // Sort: organisers with live events first, then upcoming-only, then past-only.
+        // Within each tier, larger total event counts win, then alphabetical.
+        const aActive = a.liveEventCount + a.upcomingEventCount;
+        const bActive = b.liveEventCount + b.upcomingEventCount;
         if (b.liveEventCount !== a.liveEventCount) return b.liveEventCount - a.liveEventCount;
+        if (bActive !== aActive) return bActive - aActive;
         if (b.eventCount !== a.eventCount) return b.eventCount - a.eventCount;
         return a.name.localeCompare(b.name);
       });
