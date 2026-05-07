@@ -114,6 +114,7 @@ model Attendee {
   address             String?
   companySize         String?             @map("company_size")
   tags                Json                @default("[]")
+  role                AttendeeRole        @default(ATTENDEE)
   profilePhotoUrl     String?             @map("profile_photo_url")
   companyLogoUrl      String?             @map("company_logo_url")
   registeredAt        DateTime            @default(now()) @map("registered_at")
@@ -157,6 +158,7 @@ model Attendee {
   @@index([firstName(ops: raw("gin_trgm_ops"))], map: "idx_att_fname_trgm", type: Gin)
   @@index([services], map: "idx_att_services_gin", type: Gin)
   @@index([tags], map: "idx_att_tags_gin", type: Gin)
+  @@index([eventId, role])
   @@map("attendees")
 }
 
@@ -444,4 +446,11 @@ enum DeletionRequestStatus {
   REJECTED
   PROCESSING
   COMPLETED
+}
+
+enum AttendeeRole {
+  ATTENDEE
+  SPONSOR
+  KEY_SPEAKER
+  KEY_ORGANIZER
 }
