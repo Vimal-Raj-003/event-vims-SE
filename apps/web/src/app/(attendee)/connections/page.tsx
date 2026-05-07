@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { apiClient } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/stores/auth-store";
+import { AvatarWithStar, RoleChip } from "@/components/profile/RoleBadge";
+import type { AttendeeRole } from "@/lib/role-utils";
 
 interface Connection {
   connectionId: string;
@@ -19,6 +21,7 @@ interface Connection {
     profilePhotoUrl?: string;
     services: string[];
     tags: string[];
+    role?: AttendeeRole;
   };
 }
 
@@ -87,13 +90,18 @@ export default function ConnectionsPage() {
                 onClick={() => setExpanded(expanded === conn.connectionId ? null : conn.connectionId)}
               >
                 <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary">
-                    {conn.attendee.firstName[0]}{conn.attendee.lastName[0]}
-                  </div>
+                  <AvatarWithStar role={conn.attendee.role}>
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary">
+                      {conn.attendee.firstName[0]}{conn.attendee.lastName[0]}
+                    </div>
+                  </AvatarWithStar>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-foreground">
-                      {conn.attendee.firstName} {conn.attendee.lastName}
-                    </p>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">
+                        {conn.attendee.firstName} {conn.attendee.lastName}
+                      </p>
+                      <RoleChip role={conn.attendee.role} />
+                    </div>
                     <p className="text-xs text-muted-foreground truncate">
                       {conn.attendee.designation} · {conn.attendee.company}
                     </p>
