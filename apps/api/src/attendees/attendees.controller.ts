@@ -7,12 +7,17 @@ import {
   Param,
   Query,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
   HttpCode,
   HttpStatus,
   Res,
   SetMetadata,
 } from '@nestjs/common';
 import { Response } from 'express';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { IsString, IsEmail, IsBoolean, IsOptional, IsNotEmpty, IsInt, IsNumber, IsObject, ValidateIf } from 'class-validator';
 import { AttendeesService } from './attendees.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -21,6 +26,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { CurrentUserData } from '../auth/decorators/current-user.decorator';
 import { InviteAttendeeDto } from './dto/invite-attendee.dto';
+import { MAX_FILE_SIZE_BYTES } from './excel/headers';
 
 // ──────────────────────────────────────────────
 // DTOs
@@ -266,5 +272,79 @@ export class AttendeesController {
       `attachment; filename="${result.filename}"`,
     );
     res.send(result.content);
+  }
+
+  // ──────────────────────────────────────────────
+  // ORGANISER: Get Bulk-Import Excel Template
+  // ──────────────────────────────────────────────
+
+  @Get('events/:eventId/attendees/import-template')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ORGANISER')
+  async getImportTemplate(
+    @Param('eventId') eventId: string,
+    @CurrentUser() user: CurrentUserData,
+    @Res() res: Response,
+  ) {
+    const result = await this.attendeesService.getImportTemplate(
+      eventId,
+      user.organiserId!,
+    );
+    res.setHeader('Content-Type', result.contentType);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${result.filename}"`,
+    );
+    res.send(result.buffer);
+  }
+
+  // ──────────────────────────────────────────────
+  // ORGANISER: Bulk-Import Attendees from Excel
+  // ──────────────────────────────────────────────
+
+  @Post('events/:eventId/attendees/import')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ORGANISER')
+  @HttpCode(HttpStatus.OK)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: MAX_FILE_SIZE_BYTES, files: 1 },
+      fileFilter: (_req, file, cb) => {
+        const okMime =
+          file.mimetype ===
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+          file.mimetype === 'application/octet-stream'; // some browsers send octet-stream for .xlsx
+        const okExt = /\.xlsx$/i.test(file.originalname);
+        if (okMime && okExt) cb(null, true);
+        else
+          cb(
+            new BadRequestException({
+              statusCode: 400,
+              code: 'INVALID_FILE_TYPE',
+              message: 'Only .xlsx files are accepted. Re-export from Excel/Sheets.',
+            }),
+            false,
+          );
+      },
+    }),
+  )
+  async bulkImport(
+    @Param('eventId') eventId: string,
+    @CurrentUser() user: CurrentUserData,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException({
+        statusCode: 400,
+        code: 'NO_FILE',
+        message: 'No file selected. Choose an .xlsx file and try again.',
+      });
+    }
+    return this.attendeesService.bulkImport(
+      eventId,
+      user.organiserId!,
+      file.buffer,
+    );
   }
 }
