@@ -4,6 +4,8 @@ import {
   ConflictException,
   ForbiddenException,
   BadRequestException,
+  PayloadTooLargeException,
+  InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -14,6 +16,12 @@ import { Prisma } from '@prisma/client';
 import type { CurrentUserData } from '../auth/decorators/current-user.decorator';
 import { MailService } from '../mail/mail.service';
 import type { InviteAttendeeDto } from './dto/invite-attendee.dto';
+import { buildImportTemplate } from './excel/template.builder';
+import {
+  parseImportWorkbook,
+  TemplateError,
+  type ParsedAttendee,
+} from './excel/import.parser';
 
 const ORGANISER_LIST_SELECT = {
   id: true,
@@ -902,5 +910,215 @@ export class AttendeesService {
       email: attendee.email,
       firstName: attendee.firstName,
     };
+  }
+
+  // ──────────────────────────────────────────────
+  // Bulk Import — Get Template (Organiser)
+  // ──────────────────────────────────────────────
+
+  async getImportTemplate(eventId: string, organiserId: string): Promise<{
+    filename: string;
+    contentType: string;
+    buffer: Buffer;
+  }> {
+    const event = await this.prisma.event.findUnique({
+      where: { id: eventId },
+    });
+    if (!event || event.status === EventStatus.DELETED) {
+      throw new NotFoundException('Event not found');
+    }
+    if (event.organiserId !== organiserId) {
+      throw new ForbiddenException('You do not own this event');
+    }
+
+    const buffer = await buildImportTemplate();
+
+    return {
+      filename: `attendees-import-template-${event.slug}.xlsx`,
+      contentType:
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      buffer,
+    };
+  }
+
+  // ──────────────────────────────────────────────
+  // Bulk Import — Parse + Insert (Organiser)
+  // ──────────────────────────────────────────────
+
+  async bulkImport(
+    eventId: string,
+    organiserId: string,
+    fileBuffer: Buffer,
+  ): Promise<{
+    added: number;
+    skipped: { row: number; email: string; reason: string }[];
+    errors: { row: number; reason: string; field?: string; value?: string }[];
+  }> {
+    const event = await this.prisma.event.findUnique({
+      where: { id: eventId },
+    });
+    if (!event || event.status === EventStatus.DELETED) {
+      throw new NotFoundException('Event not found');
+    }
+    if (event.organiserId !== organiserId) {
+      throw new ForbiddenException('You do not own this event');
+    }
+
+    // Pre-fetch all existing emails for this event into a Set for O(1) checks
+    const existing = await this.prisma.attendee.findMany({
+      where: { eventId },
+      select: { email: true },
+    });
+    const existingEmails = new Set<string>(
+      existing.map((a) => a.email.toLowerCase()),
+    );
+
+    let parsed;
+    try {
+      parsed = await parseImportWorkbook(fileBuffer, existingEmails);
+    } catch (err) {
+      if (err instanceof TemplateError) {
+        const map: Record<TemplateError['code'], { code: string; status: number }> = {
+          INVALID_TEMPLATE_NO_SHEET: { code: 'INVALID_TEMPLATE', status: 400 },
+          INVALID_TEMPLATE_HEADERS: { code: 'INVALID_TEMPLATE', status: 400 },
+          TOO_MANY_ROWS: { code: 'TOO_MANY_ROWS', status: 413 },
+        };
+        const m = map[err.code];
+        throw new (m.status === 413 ? PayloadTooLargeException : BadRequestException)({
+          statusCode: m.status,
+          code: m.code,
+          message: err.message,
+          details: err.details,
+        });
+      }
+      this.logger.error(`Bulk import parse failed for event ${eventId}: ${(err as Error).message}`);
+      throw new BadRequestException({
+        statusCode: 400,
+        code: 'INVALID_FILE',
+        message: 'Could not read the uploaded .xlsx file.',
+      });
+    }
+
+    const inserted = await this.insertWithRetry(eventId, parsed.toInsert);
+
+    if (inserted.skippedRowsAfterRetry.length > 0) {
+      // Concurrency: emails inserted by a parallel upload between our pre-fetch and our insert
+      for (const s of inserted.skippedRowsAfterRetry) {
+        parsed.skipped.push({ row: s.row, email: s.email, reason: 'ALREADY_REGISTERED' });
+      }
+    }
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorRole: 'organiser',
+        actorId: organiserId,
+        action: 'ATTENDEES_BULK_IMPORTED',
+        entityType: 'Event',
+        entityId: eventId,
+        metadata: {
+          added: inserted.added,
+          skipped: parsed.skipped.length,
+          errors: parsed.errors.length,
+        } as Prisma.InputJsonValue,
+      },
+    });
+
+    this.logger.log(
+      `Bulk import for event ${eventId}: added=${inserted.added}, skipped=${parsed.skipped.length}, errors=${parsed.errors.length}`,
+    );
+
+    return {
+      added: inserted.added,
+      skipped: parsed.skipped,
+      errors: parsed.errors,
+    };
+  }
+
+  // Internal helper — performs the createMany with one P2002 retry.
+  // Returns the number of rows actually inserted plus any rows we had to drop on retry.
+  private async insertWithRetry(
+    eventId: string,
+    rows: ParsedAttendee[],
+  ): Promise<{
+    added: number;
+    skippedRowsAfterRetry: { row: number; email: string }[];
+  }> {
+    if (rows.length === 0) {
+      return { added: 0, skippedRowsAfterRetry: [] };
+    }
+
+    const toData = (r: ParsedAttendee) => ({
+      eventId,
+      email: r.email,
+      firstName: r.firstName,
+      lastName: r.lastName,
+      phone: r.phone,
+      designation: r.designation,
+      company: r.company,
+      businessType: r.businessType,
+      industry: r.industry,
+      city: r.city,
+      linkedinUrl: r.linkedinUrl,
+      websiteUrl: r.websiteUrl,
+      profilePhotoUrl: r.profilePhotoUrl,
+      role: r.role,
+      profileCompleted: true,
+      profileCompletedAt: new Date(),
+      consentGiven: true,
+      consentedAt: new Date(),
+    });
+
+    try {
+      const result = await this.prisma.$transaction(async (tx) => {
+        return tx.attendee.createMany({ data: rows.map(toData) });
+      });
+      return { added: result.count, skippedRowsAfterRetry: [] };
+    } catch (err) {
+      const isUniqueViolation =
+        err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002';
+      if (!isUniqueViolation) {
+        this.logger.error(
+          `Bulk insert failed for event ${eventId}: ${(err as Error).message}`,
+        );
+        throw new InternalServerErrorException({
+          statusCode: 500,
+          code: 'IMPORT_FAILED',
+          message:
+            'Import failed, no attendees were added. Please try again. If this keeps happening contact support.',
+        });
+      }
+
+      // P2002 — refetch existing emails, drop colliders, retry once
+      const existing = await this.prisma.attendee.findMany({
+        where: { eventId },
+        select: { email: true },
+      });
+      const existingSet = new Set(existing.map((a) => a.email.toLowerCase()));
+      const filtered = rows.filter((r) => !existingSet.has(r.email));
+      const dropped = rows
+        .filter((r) => existingSet.has(r.email))
+        .map((r) => ({ row: r.row, email: r.email }));
+
+      if (filtered.length === 0) {
+        return { added: 0, skippedRowsAfterRetry: dropped };
+      }
+
+      try {
+        const result = await this.prisma.$transaction(async (tx) => {
+          return tx.attendee.createMany({ data: filtered.map(toData) });
+        });
+        return { added: result.count, skippedRowsAfterRetry: dropped };
+      } catch (err2) {
+        this.logger.error(
+          `Bulk insert retry failed for event ${eventId}: ${(err2 as Error).message}`,
+        );
+        throw new InternalServerErrorException({
+          statusCode: 500,
+          code: 'IMPORT_FAILED',
+          message:
+            'Import failed, no attendees were added. Please try again. If this keeps happening contact support.',
+        });
+      }
+    }
   }
 }
