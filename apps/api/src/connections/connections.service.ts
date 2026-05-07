@@ -163,6 +163,7 @@ export class ConnectionsService {
             tags: true,
             profilePhotoUrl: true,
             companyLogoUrl: true,
+            role: true,
           },
         },
         receiver: {
@@ -183,6 +184,7 @@ export class ConnectionsService {
             tags: true,
             profilePhotoUrl: true,
             companyLogoUrl: true,
+            role: true,
           },
         },
       },
@@ -232,6 +234,7 @@ export class ConnectionsService {
             services: true,
             profilePhotoUrl: true,
             companyLogoUrl: true,
+            role: true,
           },
         },
       },

@@ -39,6 +39,7 @@ const ORGANISER_LIST_SELECT = {
   profilePhotoUrl: true,
   companyLogoUrl: true,
   registeredAt: true,
+  role: true,
 } as const;
 
 const ATTENDEE_LIST_SELECT = {
@@ -59,6 +60,7 @@ const ATTENDEE_LIST_SELECT = {
   linkedinUrl: true,
   websiteUrl: true,
   twitterHandle: true,
+  role: true,
 } as const;
 
 @Injectable()
@@ -801,6 +803,7 @@ export class AttendeesService {
         linkedinUrl: target.linkedinUrl,
         websiteUrl: target.websiteUrl,
         twitterHandle: target.twitterHandle,
+        role: target.role,
         connectionStatus,
       };
     }
@@ -817,6 +820,7 @@ export class AttendeesService {
       city: target.city,
       profilePhotoUrl: target.profilePhotoUrl,
       companyLogoUrl: target.companyLogoUrl,
+      role: target.role,
       connectionStatus: null,
     };
   }

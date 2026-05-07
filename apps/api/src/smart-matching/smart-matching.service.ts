@@ -47,6 +47,7 @@ export class SmartMatchingService {
           profilePhotoUrl: true,
           companyLogoUrl: true,
           tags: true,
+          role: true,
         },
       });
 
@@ -164,6 +165,7 @@ export class SmartMatchingService {
         companyLogoUrl: true,
         tags: true,
         networkingGoals: true,
+        role: true,
       },
     });
 
