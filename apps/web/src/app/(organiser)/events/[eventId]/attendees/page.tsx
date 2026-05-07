@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
 import { InviteAttendeeModal } from "@/components/organiser/InviteAttendeeModal";
+import { BulkImportAttendeesModal } from "@/components/organiser/BulkImportAttendeesModal";
+import { getRoleVisuals, type AttendeeRole } from "@/lib/role-utils";
 
 interface Attendee {
   id: string;
@@ -18,6 +20,7 @@ interface Attendee {
   city: string;
   registeredAt: string;
   isPaused: boolean;
+  role: AttendeeRole;
 }
 
 interface Meta {
@@ -35,6 +38,7 @@ export default function AttendeesPage() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
   const [eventName, setEventName] = useState<string>("this event");
 
   const fetchAttendees = useCallback(
@@ -88,12 +92,20 @@ export default function AttendeesPage() {
             {meta?.total ?? 0} registered attendees
           </p>
         </div>
-        <button
-          onClick={() => setInviteOpen(true)}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm px-4 py-2 hover:bg-primary/90 transition-colors"
-        >
-          Invite attendee
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setBulkOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-white text-foreground font-semibold text-sm px-4 py-2 hover:bg-muted transition-colors"
+          >
+            Add attendees
+          </button>
+          <button
+            onClick={() => setInviteOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm px-4 py-2 hover:bg-primary/90 transition-colors"
+          >
+            Invite attendee
+          </button>
+        </div>
       </div>
 
       <div className="mt-6 relative">
@@ -113,7 +125,7 @@ export default function AttendeesPage() {
         <table className="min-w-full divide-y divide-border">
           <thead className="bg-muted/50">
             <tr>
-              {["Name", "Company", "Industry", "City", "Registered", "Status"].map((h) => (
+              {["Name", "Company", "Industry", "City", "Role", "Registered", "Status"].map((h) => (
                 <th key={h} className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                   {h}
                 </th>
@@ -122,9 +134,9 @@ export default function AttendeesPage() {
           </thead>
           <tbody className="divide-y divide-border">
             {loading ? (
-              <tr><td colSpan={6} className="py-12 text-center text-sm text-muted-foreground">Loading…</td></tr>
+              <tr><td colSpan={7} className="py-12 text-center text-sm text-muted-foreground">Loading…</td></tr>
             ) : attendees.length === 0 ? (
-              <tr><td colSpan={6} className="py-12 text-center text-sm text-muted-foreground">No attendees found</td></tr>
+              <tr><td colSpan={7} className="py-12 text-center text-sm text-muted-foreground">No attendees found</td></tr>
             ) : (
               attendees.map((a) => (
                 <tr key={a.id} className="hover:bg-muted/20">
@@ -142,6 +154,17 @@ export default function AttendeesPage() {
                   <td className="px-4 py-3 text-sm text-foreground">{a.company}<br/><span className="text-xs text-muted-foreground">{a.designation}</span></td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">{a.industry}</td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">{a.city}</td>
+                  <td className="px-4 py-3 text-sm">
+                    {(() => {
+                      const v = getRoleVisuals(a.role);
+                      if (!v) return <span className="text-xs text-muted-foreground">—</span>;
+                      return (
+                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${v.chipClass}`}>
+                          ★ {v.label}
+                        </span>
+                      );
+                    })()}
+                  </td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">
                     {new Date(a.registeredAt).toLocaleDateString("en-GB")}
                   </td>
@@ -171,6 +194,14 @@ export default function AttendeesPage() {
         open={inviteOpen}
         onClose={() => setInviteOpen(false)}
         onInvited={() => fetchAttendees(search, 1)}
+        eventId={eventId}
+        eventName={eventName}
+      />
+
+      <BulkImportAttendeesModal
+        open={bulkOpen}
+        onClose={() => setBulkOpen(false)}
+        onImported={() => fetchAttendees(search, 1)}
         eventId={eventId}
         eventName={eventName}
       />
