@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import axios from "axios";
 import { apiClient } from "@/lib/api-client";
 
 const AttendeeQrScanner = dynamic(
@@ -426,48 +427,49 @@ function AttendeeLoginContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Lazy-load active events list when ID tab opens (also primes the dropdown
-  // before the user even clicks). Cheap, cached for 30s server-side.
+  // Lazy-load active events list when ID tab opens. Re-runs when activeTab
+  // or activeEvents.length flips, but the early-return guard plus
+  // AbortController make repeat fires cheap. NEVER include the *Loading state
+  // in the dep array of an effect that sets that same state — it produces a
+  // cleanup-before-response race that strands the spinner.
   useEffect(() => {
-    if (activeTab !== "id" || activeEvents.length > 0 || activeEventsLoading) return;
-    let cancelled = false;
+    if (activeTab !== "id" || activeEvents.length > 0) return;
+    const ctrl = new AbortController();
     setActiveEventsLoading(true);
     apiClient
-      .get<ActiveEventOption[]>("/public/events/active")
+      .get<ActiveEventOption[]>("/public/events/active", { signal: ctrl.signal })
       .then((res) => {
-        if (!cancelled) setActiveEvents(res.data ?? []);
+        if (!ctrl.signal.aborted) setActiveEvents(res.data ?? []);
       })
-      .catch(() => {
-        if (!cancelled) setActiveEvents([]);
+      .catch((err) => {
+        if (axios.isCancel(err) || ctrl.signal.aborted) return;
+        setActiveEvents([]);
       })
       .finally(() => {
-        if (!cancelled) setActiveEventsLoading(false);
+        if (!ctrl.signal.aborted) setActiveEventsLoading(false);
       });
-    return () => {
-      cancelled = true;
-    };
-  }, [activeTab, activeEvents.length, activeEventsLoading]);
+    return () => ctrl.abort();
+  }, [activeTab, activeEvents.length]);
 
-  // Lazy-load organisers when Browse tab opens.
+  // Lazy-load organisers when Browse tab opens. Same AbortController pattern.
   useEffect(() => {
-    if (activeTab !== "browse" || organisers.length > 0 || organisersLoading) return;
-    let cancelled = false;
+    if (activeTab !== "browse" || organisers.length > 0) return;
+    const ctrl = new AbortController();
     setOrganisersLoading(true);
     apiClient
-      .get<OrganiserOption[]>("/public/organisers")
+      .get<OrganiserOption[]>("/public/organisers", { signal: ctrl.signal })
       .then((res) => {
-        if (!cancelled) setOrganisers(res.data ?? []);
+        if (!ctrl.signal.aborted) setOrganisers(res.data ?? []);
       })
-      .catch(() => {
-        if (!cancelled) setOrganisers([]);
+      .catch((err) => {
+        if (axios.isCancel(err) || ctrl.signal.aborted) return;
+        setOrganisers([]);
       })
       .finally(() => {
-        if (!cancelled) setOrganisersLoading(false);
+        if (!ctrl.signal.aborted) setOrganisersLoading(false);
       });
-    return () => {
-      cancelled = true;
-    };
-  }, [activeTab, organisers.length, organisersLoading]);
+    return () => ctrl.abort();
+  }, [activeTab, organisers.length]);
 
   // Load events whenever the selected organiser changes.
   useEffect(() => {
@@ -476,23 +478,22 @@ function AttendeeLoginContent() {
       setEventId(null);
       return;
     }
-    let cancelled = false;
+    const ctrl = new AbortController();
     setEventsLoading(true);
     setEventId(null);
     apiClient
-      .get<EventOption[]>(`/public/organisers/${organiserId}/events`)
+      .get<EventOption[]>(`/public/organisers/${organiserId}/events`, { signal: ctrl.signal })
       .then((res) => {
-        if (!cancelled) setOrganiserEvents(res.data ?? []);
+        if (!ctrl.signal.aborted) setOrganiserEvents(res.data ?? []);
       })
-      .catch(() => {
-        if (!cancelled) setOrganiserEvents([]);
+      .catch((err) => {
+        if (axios.isCancel(err) || ctrl.signal.aborted) return;
+        setOrganiserEvents([]);
       })
       .finally(() => {
-        if (!cancelled) setEventsLoading(false);
+        if (!ctrl.signal.aborted) setEventsLoading(false);
       });
-    return () => {
-      cancelled = true;
-    };
+    return () => ctrl.abort();
   }, [organiserId]);
 
   // The picked-active-event combobox is just a different way to populate
